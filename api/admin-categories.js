@@ -1,5 +1,9 @@
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
+
+// Keep admin category auth compatible with the passwordless admin token issued by api/index.js.
+if (!process.env.SESSION_SECRET) process.env.SESSION_SECRET = 'safa-passwordless-admin-session';
+
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false });
 
 function auth(req, res) {
@@ -48,6 +52,7 @@ module.exports = async (req, res) => {
         if (key === 'nameEn' || key === 'nameAr') value = clean(value);
         if (key === 'position') value = Number(value || 0);
         if (key === 'imageUrl') value = clean(value) || null;
+        if (key === 'slug') value = slugify(value);
         values.push(value);
       }
       if (!fields.length) return res.status(400).json({ error: 'No changes' });
@@ -57,7 +62,7 @@ module.exports = async (req, res) => {
       return res.json(row);
     }
     if (method === 'DELETE') {
-      const id = req.body?.id || req.query?.id;
+      const id = bodyId(req);
       if (!id) return res.status(400).json({ error: 'Category id is required' });
       await pool.query('delete from categories where id=$1', [id]);
       return res.status(204).end();
@@ -69,3 +74,7 @@ module.exports = async (req, res) => {
     return res.status(400).json({ error: error?.code === '23505' ? 'Category slug already exists' : (error?.message || 'Category operation failed') });
   }
 };
+
+function bodyId(req) {
+  return req.body?.id || req.query?.id;
+}
