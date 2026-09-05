@@ -95,7 +95,19 @@
     });
   }
 
+  function openAdminFromDirectLink() {
+    const params = new URLSearchParams(window.location.search);
+    const wantsAdmin = params.get('admin') === '1' || window.location.hash === '#admin';
+    if (!wantsAdmin || token()) return;
+    const key = document.querySelector('.keybutton');
+    if (key) {
+      key.click();
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }
+
   function boot() {
+    openAdminFromDirectLink();
     document.querySelectorAll('.loginadmin form').forEach(wireLogin);
     if (token()) wireProductEditors();
   }
