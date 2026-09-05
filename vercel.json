@@ -1,1 +1,10 @@
-{"buildCommand":"npm run build","outputDirectory":"dist","rewrites":[{"source":"/api/health","destination":"/api/health.js"},{"source":"/api/:path*","destination":"/api/index.js"},{"source":"/(.*)","destination":"/index.html"}]}
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "rewrites": [
+    { "source": "/api/health", "destination": "/api/health.js" },
+    { "source": "/api/blob/:path*", "destination": "/api/blob.js" },
+    { "source": "/api/:path*", "destination": "/api/index.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
