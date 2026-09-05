@@ -1,0 +1,1 @@
+require('dotenv').config();const{Pool}=require('pg'),fs=require('fs');const p=new Pool({connectionString:process.env.DATABASE_URL});p.query(fs.readFileSync(__dirname+'/schema.sql','utf8')).then(()=>console.log('Migration complete')).catch(console.error).finally(()=>p.end());
