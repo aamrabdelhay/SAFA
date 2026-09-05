@@ -26,13 +26,10 @@ jobs:
               raise SystemExit('Target homepage category list not found; refusing to modify anything.')
           p.write_text(s.replace(old, new, 1))
           PY
-      - name: Verify build
-        run: npm ci && npm run build
-      - name: Commit and remove workflow
+      - name: Commit source change
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/main.jsx .github/workflows/apply-homepage-change.yml
-          git rm .github/workflows/apply-homepage-change.yml
+          git add src/main.jsx
           git commit -m "chore: remove Clinique and Curology from homepage"
           git push
