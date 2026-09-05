@@ -5,6 +5,39 @@
 const { Readable } = require('stream');
 const { get } = require('@vercel/blob');
 
+const BUILD_TAG = 'blob-proxy-diag-1';
+// TEMPORARY diagnostics: last blob-proxy errors (sanitized), for finding out
+// why reads fail in the Vercel deployment. Remove once resolved.
+const lastBlobErrors = [];
+function redact(message) {
+  return String(message || '')
+    .replace(/vercel[_-]?blob[_-][A-Za-z0-9_-]{6,}/gi, '[redacted-token]')
+    .replace(/Bearer\s+[A-Za-z0-9._-]{12,}/gi, 'Bearer [redacted]')
+    .replace(/[A-Za-z0-9._-]{40,}/g, m => (m.includes('.') ? m.slice(0, 12) + '…' : '[redacted]'))
+    .slice(0, 600);
+}
+function recordBlobError(stage, error) {
+  lastBlobErrors.push({ at: new Date().toISOString(), stage, message: redact(error && error.message ? error.message : error) });
+  if (lastBlobErrors.length > 25) lastBlobErrors.shift();
+}
+function recordBlobSuccess(info) {
+  lastBlobErrors.push({ at: new Date().toISOString(), stage: 'ok', ...info });
+  if (lastBlobErrors.length > 25) lastBlobErrors.shift();
+}
+function blobDebugInfo() {
+  return {
+    build: BUILD_TAG,
+    node: process.version,
+    env: {
+      rwToken: Boolean(process.env.BLOB_READ_WRITE_TOKEN && process.env.BLOB_READ_WRITE_TOKEN !== 'oidc-managed'),
+      oidcToken: Boolean(process.env.VERCEL_OIDC_TOKEN),
+      storeId: Boolean(process.env.BLOB_STORE_ID),
+      vercelEnv: process.env.VERCEL_ENV || null,
+    },
+    recent: lastBlobErrors,
+  };
+}
+
 const FALLBACK_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6f0e4"/><stop offset="1" stop-color="#d8c08a"/></linearGradient></defs><rect width="900" height="900" fill="url(#g)"/><circle cx="450" cy="430" r="155" fill="#fffdf8" opacity=".82"/><path d="M390 500h120l-18 150H408z" fill="#b8860b" opacity=".9"/><rect x="405" y="455" width="90" height="45" rx="8" fill="#211f1b"/><text x="450" y="425" text-anchor="middle" fill="#211f1b" font-family="Georgia,serif" font-size="64" letter-spacing="10">SAFA</text><text x="450" y="715" text-anchor="middle" fill="#211f1b" opacity=".65" font-family="Arial,sans-serif" font-size="18" letter-spacing="5">BEAUTY, REFINED.</text></svg>';
 
 function fallbackImage(res) {
@@ -66,7 +99,29 @@ async function serveBlob(req, res) {
     if (!pathname) {
       res.statusCode = 400;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
-      return res.end(JSON.stringify({ error: 'Blob pathname is required' }));
+      return res.end(JSON.stringify({ error: 'Blob pathname is required', build: BUILD_TAG }));
+    }
+
+    // TEMPORARY diagnostics: probe a known-existing blob and report why reads
+    // succeed or fail in this exact function instance. Remove once resolved.
+    if (pathname === '__safa_diag__') {
+      try {
+        const probe = await get('safa/products/c9b21ae7-f762-435a-938c-fc8341607f85/1788635234597-1002236293.webp', blobCredentials());
+        const kind = probe && probe.stream ? (typeof probe.stream.pipe === 'function' ? 'node-stream' : 'web-stream') : 'empty';
+        recordBlobSuccess({ via: kind, probe: true, type: probe && probe.blob ? probe.blob.contentType : null, status: probe ? probe.statusCode : null });
+        try {
+          if (probe && probe.stream) {
+            if (typeof probe.stream.cancel === 'function') await probe.stream.cancel();
+            else if (typeof probe.stream.destroy === 'function') probe.stream.destroy();
+          }
+        } catch {}
+      } catch (error) {
+        recordBlobError('probe', error);
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.end(JSON.stringify(blobDebugInfo()));
     }
 
     let result = null;
@@ -74,9 +129,10 @@ async function serveBlob(req, res) {
       result = await get(pathname, blobCredentials());
     } catch (error) {
       console.error('SAFA blob proxy get() error:', (error && error.message) || error);
+      recordBlobError('get', error);
       return fallbackImage(res);
     }
-    if (!result || !result.blob || !result.stream) return fallbackImage(res);
+    if (!result || !result.blob || !result.stream) { recordBlobError('empty-result', new Error(result ? 'result missing blob/stream' : 'get() returned null (blob not found)')); return fallbackImage(res); }
 
     res.statusCode = 200;
     res.setHeader('Content-Type', result.blob.contentType || 'application/octet-stream');
@@ -86,8 +142,10 @@ async function serveBlob(req, res) {
     if (typeof result.stream.pipe === 'function') {
       result.stream.on('error', (error) => {
         console.error('SAFA blob stream error:', (error && error.message) || error);
+        recordBlobError('node-stream', error);
         try { res.end(); } catch {}
       });
+      result.stream.on('end', () => recordBlobSuccess({ via: 'node-stream', type: result.blob.contentType }));
       result.stream.pipe(res);
       return;
     }
@@ -98,16 +156,20 @@ async function serveBlob(req, res) {
       const nodeStream = Readable.fromWeb(result.stream);
       nodeStream.on('error', (error) => {
         console.error('SAFA blob stream error:', (error && error.message) || error);
+        recordBlobError('web-stream', error);
         try { if (!res.headersSent) fallbackImage(res); else res.end(); } catch {}
       });
+      nodeStream.on('end', () => recordBlobSuccess({ via: 'web-stream', type: result.blob.contentType }));
       nodeStream.pipe(res);
       return;
     }
 
     const buffer = await webStreamToBuffer(result.stream);
+    recordBlobSuccess({ via: 'buffered', type: result.blob.contentType });
     res.end(buffer);
   } catch (error) {
     console.error('SAFA blob proxy error:', (error && error.message) || error);
+    recordBlobError('outer', error);
     fallbackImage(res);
   }
 }
@@ -141,4 +203,4 @@ function mapPrivateBlobUrls(value) {
 // Stable, displayable URL to persist in the database for a freshly uploaded blob.
 const blobProxyUrlFor = (pathname) => `/api/blob/${encodeURIComponent(String(pathname || '').replace(/^\/+/, ''))}`;
 
-module.exports = { serveBlob, fallbackImage, extractPathname, privateBlobProxyUrl, mapPrivateBlobUrls, blobProxyUrlFor };
+module.exports = { serveBlob, fallbackImage, extractPathname, privateBlobProxyUrl, mapPrivateBlobUrls, blobProxyUrlFor, blobDebugInfo };
