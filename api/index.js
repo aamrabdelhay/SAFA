@@ -21,6 +21,9 @@ blob.put = (pathname, body, options = {}) => realPut(pathname, body, {
 
 const { get } = blob;
 const app = require('../server/index.js');
+// Vercel forwards the client IP through X-Forwarded-For/Forwarded.
+// Trust the single Vercel proxy hop so express-rate-limit can identify clients correctly.
+app.set('trust proxy', 1);
 
 function privateBlobProxyUrl(value) {
   if (typeof value !== 'string') return value;
