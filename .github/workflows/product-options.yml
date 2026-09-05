@@ -1,0 +1,20 @@
+name: Build SAFA product options
+on:
+  push:
+    branches: [main]
+    paths: ['scripts/apply-safa-improvements.py']
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 scripts/apply-safa-improvements.py
+      - run: npm install --no-audit --no-fund && npm run build
+      - run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main.jsx src/mobile.css
+          git commit -m 'Add product options and quantity selection' || exit 0
+          git push origin main
