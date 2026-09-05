@@ -27,8 +27,9 @@ module.exports = async (req, res) => {
     }
     if (method === 'POST') {
       const body = req.body || {};
-      const nameEn = clean(body.nameEn), nameAr = clean(body.nameAr);
-      if (nameEn.length < 2 || nameAr.length < 2) return res.status(400).json({ error: 'English and Arabic category names are required' });
+      const nameEn = clean(body.nameEn);
+      const nameAr = clean(body.nameAr) || nameEn;
+      if (nameEn.length < 2) return res.status(400).json({ error: 'English category name is required' });
       const base = slugify(body.slug || nameEn);
       let slug = base;
       for (let i = 2; (await pool.query('select 1 from categories where slug=$1', [slug])).rows[0]; i++) slug = `${base}-${i}`;
@@ -43,7 +44,11 @@ module.exports = async (req, res) => {
       for (const [key, column] of Object.entries(map)) {
         if (!(key in body)) continue;
         fields.push(`${column}=$${values.length + 1}`);
-        values.push(key === 'position' ? Number(body[key] || 0) : key === 'imageUrl' ? (clean(body[key]) || null) : body[key]);
+        let value = body[key];
+        if (key === 'nameEn' || key === 'nameAr') value = clean(value);
+        if (key === 'position') value = Number(value || 0);
+        if (key === 'imageUrl') value = clean(value) || null;
+        values.push(value);
       }
       if (!fields.length) return res.status(400).json({ error: 'No changes' });
       values.push(body.id);
