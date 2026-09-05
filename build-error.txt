@@ -1,0 +1,33 @@
+
+added 193 packages in 7s
+
+> build
+> vite build
+
+[33m(!) Your Vite config uses features that are unsupported by `configLoader: 'native'`, which is planned to become the default in a future major version of Vite:
+  - ESM syntax in a file loaded as CommonJS (vite.config.js:1:1). Use a `.mjs` extension or set `"type": "module"` in the closest package.json
+Set `VITE_CONFIG_NATIVE_IGNORE_WARNING=true` to suppress this warning.[39m
+[36mvite v8.2.2 [32mbuilding client environment for production...[36m[39m
+transforming...
+✓ 3 modules transformed.
+[31m✗[39m Build failed in 25ms
+[31merror during build:
+[31mBuild failed with 1 error:
+
+[31m[builtin:vite-transform] [0mUnexpected token
+    [38;5;246m╭[0m[38;5;246m─[0m[38;5;246m[[0m src/main.jsx:46:1 [38;5;246m][0m
+    [38;5;246m│[0m
+ [38;5;246m46 │[0m )[38;5;249m{[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mt[0m[38;5;249mu[0m[38;5;249mr[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249m<[0m[38;5;249ms[0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mn[0m[38;5;249m [0m[38;5;249mc[0m[38;5;249ml[0m[38;5;249ma[0m[38;5;249ms[0m[38;5;249ms[0m[38;5;249mN[0m[38;5;249ma[0m[38;5;249mm[0m[38;5;249me[0m[38;5;249m=[0m[38;5;249m{[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mq[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m?[0m[38;5;249m'[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249mq[0m[38;5;249mu[0m[38;5;249mi[0m[38;5;249mr[0m[38;5;249me[0m[38;5;249md[0m[38;5;249m-[0m[38;5;249md[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249m'[0m[38;5;249m:[0m[38;5;249m'[0m[38;5;249mo[0m[38;5;249mp[0m[38;5;249mt[0m[38;5;249mi[0m[38;5;249mo[0m[38;5;249mn[0m[38;5;249ma[0m[38;5;249ml[0m[38;5;249m-[0m[38;5;249md[0m[38;5;249mo[0m[38;5;249mt[0m[38;5;249m'[0m[38;5;249m}[0m[38;5;249m [0m[38;5;249ma[0m[38;5;249mr[0m[38;5;249mi[0m[38;5;249ma[0m[38;5;249m-[0m[38;5;249mh[0m[38;5;249mi[0m[38;5;249md[0m[38;5;249md[0m[38;5;249me[0m[38;5;249mn[0m[38;5;249m=[0m[38;5;249m"[0m[38;5;249mt[0m[38;5;249mr[0m[38;5;249mu[0m[38;5;249me[0m[38;5;249m"[0m[38;5;249m>[0m[38;5;249m•[0m[38;5;249m<[0m[38;5;249m/[0m[38;5;249ms[0m[38;5;249mp[0m[38;5;249ma[0m[38;5;249mn[0m[38;5;249m>[0m[38;5;249m}[0m
+ [38;5;240m   │[0m ┬  
+ [38;5;240m   │[0m ╰── 
+[38;5;246m────╯[0m
+[31m
+    at aggregateBindingErrorsIntoJsError (file:///home/runner/work/SAFA/SAFA/node_modules/rolldown/dist/shared/error-BP8lJHle.mjs:48:18)
+    at unwrapBindingResult (file:///home/runner/work/SAFA/SAFA/node_modules/rolldown/dist/shared/error-BP8lJHle.mjs:18:128)
+    at #build (file:///home/runner/work/SAFA/SAFA/node_modules/rolldown/dist/shared/rolldown-DfXO5K1m.mjs:133:34)
+    at async buildEnvironment (file:///home/runner/work/SAFA/SAFA/node_modules/vite/dist/node/chunks/node.js:33821:66)
+    at async Object.build (file:///home/runner/work/SAFA/SAFA/node_modules/vite/dist/node/chunks/node.js:34242:19)
+    at async Object.buildApp (file:///home/runner/work/SAFA/SAFA/node_modules/vite/dist/node/chunks/node.js:34239:153)
+    at async CAC.<anonymous> (file:///home/runner/work/SAFA/SAFA/node_modules/vite/dist/node/cli.js:776:3) {
+  errors: [Getter/Setter]
+}[39m
