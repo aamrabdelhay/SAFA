@@ -5,7 +5,7 @@
 const { Readable } = require('stream');
 const { get } = require('@vercel/blob');
 
-const BUILD_TAG = 'blob-proxy-diag-3';
+const BUILD_TAG = 'blob-proxy-diag-4';
 // TEMPORARY diagnostics: last blob-proxy errors (sanitized), for finding out
 // why reads fail in the Vercel deployment. Remove once resolved.
 const lastBlobErrors = [];
@@ -133,10 +133,29 @@ async function serveBlob(req, res) {
         listing = { error: redact(error && error.message) };
         recordBlobError('list', error);
       }
+      let writeTest = null;
+      try {
+        const { put } = require('@vercel/blob');
+        const testPath = `safa/__diag_test/${Date.now()}.txt`;
+        const w = await put(testPath, Buffer.from('safa-diag'), { access: 'private', contentType: 'text/plain', token: creds.token, oidcToken: creds.oidcToken, storeId: creds.storeId, addRandomSuffix: false });
+        let readBack = null;
+        try {
+          const r = await get(testPath, creds);
+          readBack = Boolean(r && r.blob);
+          try { if (r && r.stream && typeof r.stream.cancel === 'function') await r.stream.cancel(); } catch {}
+        } catch (error) {
+          readBack = redact(error && error.message);
+        }
+        writeTest = { putPathname: w.pathname, putHost: (w.url || '').split('/')[2] || null, readBack };
+        try { const { del } = require('@vercel/blob'); await del(testPath, { token: creds.token, oidcToken: creds.oidcToken, storeId: creds.storeId }); } catch {}
+      } catch (error) {
+        writeTest = { error: redact(error && error.message) };
+        recordBlobError('write-test', error);
+      }
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
-      return res.end(JSON.stringify({ ...blobDebugInfo(), probes: results, listing }));
+      return res.end(JSON.stringify({ ...blobDebugInfo(), probes: results, listing, writeTest }));
     }
 
     let result = null;
