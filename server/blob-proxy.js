@@ -1,7 +1,5 @@
-// Shared helpers for serving private Vercel Blob objects through /api/blob.
-// Used by the Vercel function (api/blob.js), the Vercel app wrapper
-// (api/index.js) and the standalone Express server (server/index.js) so that
-// uploaded images keep working in every environment.
+// Shared helpers for serving Blob objects through /api/blob.
+// The SAFA Blob store is configured as PUBLIC, so reads must use public access.
 const { Readable } = require('stream');
 const { get } = require('@vercel/blob');
 
@@ -21,7 +19,6 @@ function fallbackImage(res) {
   }
 }
 
-// Accepts ?path=..., ?path[]=a&path[]=b (wildcard rewrites) or /api/blob/<pathname>.
 function extractPathname(req) {
   const queryPath = req.query ? req.query.path : undefined;
   let raw = '';
@@ -41,7 +38,7 @@ function blobCredentials() {
     ? process.env.BLOB_READ_WRITE_TOKEN
     : undefined;
   return {
-    access: 'private',
+    access: 'public',
     token,
     oidcToken: process.env.VERCEL_OIDC_TOKEN || undefined,
     storeId: process.env.BLOB_STORE_ID || undefined,
@@ -81,7 +78,6 @@ async function serveBlob(req, res) {
     res.setHeader('Content-Type', result.blob.contentType || 'application/octet-stream');
     res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=86400, stale-while-revalidate=604800');
 
-    // Node readable stream: pipe directly.
     if (typeof result.stream.pipe === 'function') {
       result.stream.on('error', (error) => {
         console.error('SAFA blob stream error:', (error && error.message) || error);
@@ -91,8 +87,6 @@ async function serveBlob(req, res) {
       return;
     }
 
-    // @vercel/blob >= 2.3 returns a Web ReadableStream (undici) which has no
-    // .pipe() — convert it before piping. This was the cause of broken images.
     if (typeof Readable.fromWeb === 'function') {
       const nodeStream = Readable.fromWeb(result.stream);
       nodeStream.on('error', (error) => {
@@ -111,8 +105,7 @@ async function serveBlob(req, res) {
   }
 }
 
-// Turn a private Vercel Blob URL into a same-origin proxy URL. Public blob
-// URLs and already-proxied values are returned untouched.
+// Public blob URLs and already-proxied values are returned untouched.
 function privateBlobProxyUrl(value) {
   if (typeof value !== 'string' || !value) return value;
   if (value.startsWith('/api/blob/') || value.startsWith('/api/blob?')) return value;
@@ -137,7 +130,6 @@ function mapPrivateBlobUrls(value) {
   return value;
 }
 
-// Stable, displayable URL to persist in the database for a freshly uploaded blob.
 const blobProxyUrlFor = (pathname) => `/api/blob/${encodeURIComponent(String(pathname || '').replace(/^\/+/, ''))}`;
 
 module.exports = { serveBlob, fallbackImage, extractPathname, privateBlobProxyUrl, mapPrivateBlobUrls, blobProxyUrlFor };
