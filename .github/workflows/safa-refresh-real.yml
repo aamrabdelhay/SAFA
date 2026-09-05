@@ -1,0 +1,30 @@
+name: SAFA refresh real
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Apply visual changes
+        run: |
+          python3 - <<'PY'
+          import base64
+          exec(base64.b64decode('ZnJvbSBwYXRobGliIGltcG9ydCBQYXRoCnA9UGF0aCgnc3JjL21haW4uanN4JykKcz1wLnJlYWRfdGV4dCgpCnM9cy5yZXBsYWNlKCJjb25zdCBjdXJhdGVkPVt7bmFtZTonQ0xJTklRVUUnLGZhbGxiYWNrOido dHRwczovL2ltYWdlcy51bnNwbGFzaC5jb20vcGhvdG8tMTU1NjIyODcyMC0xOTVhNjcyZThhMDM/YXV0bz1mb3JtYXQmZml0PWNyb3Amdz05MDAmcT04NSd9LHtuYW1lOidDdXJvbG9neScsZmFsbGJhY2s6J2h0dHBzOi8vaW1hZ2VzLnVuc3BsYXNoLmNvbS9waG90by0xNjExOTMwMDIyMDczLWI3YTRiYTVmY2NkP2F1dG89Zm9ybWF0JmZpdD1jcm9wJnc9OTAwJnE9ODUnfSx7bmFtZTonU2tpbmNhcmUnLGZhbGxiYWNrOido dHRwczovL2ltYWdlcy51bnNwbGFzaC5jb20vcGhvdG8tMTU1NjIyOTAxMC05ZjdlM2YyZjlkNWE/YXV0bz1mb3JtYXQmZml0PWNyb3Amdz05MDAmcT04NSd9LHtuYW1lOidGYWNlIENhcmUnLGZhbGxiYWNrOido dHRwczovL2ltYWdlcy51bnNwbGFzaC5jb20vcGhvdG8tMTU5NjQ2MjUwMjI3OC0yN2JmZGNjNDAzMzQ4P2F1dG89Zm9ybWF0JmZpdD1jcm9wJnc9OTAwJnE9ODUnfSx7bmFtZTonSGFpciBDYXJlJyxmYWxsYmFjazonaHR0cHM6Ly9pbWFnZXMudW5zcGxhc2guY29tL3Bob3RvLTE1MjIzMzczNjA3ODgtOGIxM2RlZTdhMzdlP2F1dG89Zm9ybWF0JmZpdD1jcm9wJnc9OTAwJnE9ODUnfSx7bmFtZTonQm9keSBDYXJlJyxmYWxsYmFjazonaHR0cHM6Ly9pbWFnZXMudW5zcGxhc2guY29tL3Bob3RvLTE2MDgyNDg1NDM4MDMtYmE0ZjhjNzBhZTBiP2F1dG89Zm9ybWF0JmZpdD1jcm9wJnc9OTAwJnE9ODUnfSx7bmFtZTonTGlwIENhcmUnLGZhbGxiYWNrOido dHRwczovL2ltYWdlcy51bnNwbGFzaC5jb20vcGhvdG8tMTU4NjQ5NTc3Nzc0NC00NDEzZjIxMDYyZmE/YXV0bz1mb3JtYXQmZml0PWNyb3Amdz05MDAmcT04NSd9XTsiLCJjb25zdCBjdXJhdGVkPVt7bmFtZTonU2tpbmNhcmUnLGZhbGxiYWNrOido dHRwczovL2ltYWdlcy51bnNwbGFzaC5jb20vcGhvdG8tMTU1NjIyOTAxMC05ZjdlM2YyZjlkNWE/YXV0bz1mb3JtYXQmZml0PWNyb3Amdz05MDAmcT04NSd9LHtuYW1lOidGYWNlIENhcmUnLGZhbGxiYWNrOido dHRwczovL2ltYWdlcy51bnNwbGFzaC5jb20vcGhvdG8tMTU5NjQ2MjUwMjI3OC0yN2JmZGNjNDAzMzQ4P2F1dG89Zm9ybWF0JmZpdD1jcm9wJnc9OTAwJnE9ODUnfSx7bmFtZTonSGFpciBDYXJlJyxmYWxsYmFjazonaHR0cHM6Ly9pbWFnZXMudW5zcGxhc2guY29tL3Bob3RvLTE1MjIzMzczNjA3ODgtOGIxM2RlZTdhMzdlP2F1dG89Zm9ybWF0JmZpdD1jcm9wJnc9OTAwJnE9ODUnfSx7bmFtZTonQm9keSBDYXJlJyxmYWxsYmFjazonaHR0cHM6Ly9pbWFnZXMudW5zcGxhc2guY29tL3Bob3RvLTE2MDgyNDg1NDM4MDMtYmE0ZjhjNzBhZTBiP2F1dG89Zm9ybWF0JmZpdD1jcm9wJnc9OTAwJnE9ODUnfSx7bmFtZTonTGlwIENhcmUnLGZhbGxiYWNrOido dHRwczovL2ltYWdlcy51bnNwbGFzaC5jb20vcGhvdG8tMTU4NjQ5NTc3Nzc0NC00NDEzZjIxMDYyZmE/YXV0bz1mb3JtYXQmZml0PWNyb3Amdz05MDAmcT04NSd9XTsi,1)
+start=s.index('function Footer()');end=s.index('\\n\\ncreateRoot',start)
+footer='function Footer(){return <footer><div className="footer-brand"><div className="brand">Safa &amp; More<span></span></div></div><div className="socials"><a href="https://www.instagram.com/safa_beauty0?igsi=MXN3czQ5bHB2dHF1ZA==" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1"/></svg> Instagram ↗</a><a href="https://www.facebook.com/share/1MQzfEhrYw/" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24"><path d="M14 8h3V4h-3c-3.3 0-5 1.8-5 5v3H6v4h3v4h4v-4h3l1-4h-4V9c0-.7.3-1 1-1Z"/></svg> Facebook ↗</a><a href="https://wa.me/201044665050" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24"><path d="M20 4.1A10 10 0 0 0 4.3 16.2L3 21l4.9-1.3A10 10 0 1 0 20 4.1Z"/></svg> WhatsApp 01044665050 ↗</a><a href="https://www.tiktok.com/@safamore?_r=1&amp;_t=ZS-99TjSPCOR9D" target="_blank" rel="noreferrer"><svg viewBox="0 0 24 24"><path d="M14 4v10.2a3.8 3.8 0 1 1-3-3.7V7.3A7 7 0 1 0 17 14V9.2c1.5 1 3.2 1.5 5 1.5V7.2c-2.7 0-5-1.4-6-3.2H14Z"/></svg> TikTok ↗</a></div><small className="credit">Designed &amp; Developed by <strong>Amr Abdelhay</strong></small></footer>}'
+s=s[:start]+footer+s[end:]
+p.write_text(s)
+css=Path('src/style.css');c=css.read_text();c+='''\n.header .actions button{border:0!important;border-radius:50%;width:42px;height:42px;padding:0;display:grid;place-items:center;background:#fffdf8;color:#6f5730;box-shadow:0 4px 14px #211f1b12}.header .actions .bag{border-radius:22px;width:auto;padding:0 17px}.footer-brand{display:flex;align-items:center}.socials a{display:flex;align-items:center;gap:9px;min-width:190px}.socials svg{fill:none;stroke:#b8860b;stroke-width:1.6px;width:17px;height:17px}.socials a:nth-child(2) svg{fill:#b8860b;stroke:none}.category-photo-grid{grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}.category-photo-grid .cat{height:260px;padding:18px}.category-photo-grid .cat h3{font-size:25px}\n''';css.write_text(c)
+PY
+          PY
+      - name: Commit
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main.jsx src/style.css
+          git diff --cached --quiet || git commit -m 'style: restore luxury SAFA header and footer'
+          git push
