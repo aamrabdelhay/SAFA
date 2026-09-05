@@ -36,3 +36,5 @@
   tagCategoryTab();
   new MutationObserver(() => { injectStyle(); tagCategoryTab(); }).observe(document.documentElement,{childList:true,subtree:true});
 })();
+
+/* Keep checkout recommendations and category controls visually consistent with the SAFA luxury theme. */
