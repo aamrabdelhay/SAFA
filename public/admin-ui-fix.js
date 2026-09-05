@@ -1,8 +1,8 @@
-/* SAFA admin UI fix v2 */
+/* SAFA admin UI fix v3 */
 (() => {
   const hideDashboardBranding = () => {
     document.querySelectorAll('.admin .admin-title h1').forEach(el => {
-      if (/^Good morning\.?$/i.test(el.textContent.trim())) el.textContent = 'Dashboard';
+      if (/^Good morning\.?$/i.test(el.textContent.trim())) el.remove();
     });
     document.querySelectorAll('.admin .add-logo').forEach(el => el.remove());
   };
