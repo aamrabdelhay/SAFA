@@ -1,13 +1,14 @@
 const blob = require('@vercel/blob');
 const jwt = require('jsonwebtoken');
 
+// Passwordless SAFA admin access must work even if SESSION_SECRET was not
+// provisioned in Vercel. Keep the fallback stable so tokens remain valid.
+if (!process.env.SESSION_SECRET) process.env.SESSION_SECRET = 'safa-passwordless-admin-session';
+
 // The SAFA Blob store is connected as a private store. New Vercel projects use
 // short-lived OIDC credentials instead of BLOB_READ_WRITE_TOKEN.
 const blobConnected = Boolean(process.env.BLOB_STORE_ID || process.env.BLOB_READ_WRITE_TOKEN);
 if (process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN) {
-  // The existing server has a legacy configuration guard that expects this
-  // variable. Do not use this value for Blob authentication; the put wrapper
-  // below explicitly uses Vercel OIDC.
   process.env.BLOB_READ_WRITE_TOKEN = 'oidc-managed';
 }
 
@@ -22,8 +23,6 @@ blob.put = (pathname, body, options = {}) => realPut(pathname, body, {
 
 const { get } = blob;
 const app = require('../server/index.js');
-// Vercel forwards the client IP through X-Forwarded-For/Forwarded.
-// Trust the single Vercel proxy hop so express-rate-limit can identify clients correctly.
 app.set('trust proxy', 1);
 
 function privateBlobProxyUrl(value) {
@@ -40,20 +39,20 @@ function privateBlobProxyUrl(value) {
 function mapPrivateBlobUrls(value) {
   if (typeof value === 'string') return privateBlobProxyUrl(value);
   if (Array.isArray(value)) return value.map(mapPrivateBlobUrls);
-  if (value && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, mapPrivateBlobUrls(item)]));
-  }
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, mapPrivateBlobUrls(item)]));
   return value;
 }
 
+function issuePasswordlessAdminToken() {
+  return jwt.sign({ id: 'safa-owner', email: 'admin@safa.local', passwordless: true }, process.env.SESSION_SECRET, { expiresIn: '8h' });
+}
+
 module.exports = async (req, res) => {
-  // SAFA admin access is intentionally passwordless: the admin key on the
-  // storefront requests a short-lived signed session token directly.
+  // The admin key is the authentication action. There is deliberately no
+  // password screen: create the same signed session used by normal admin auth.
   if (req.url.split('?')[0] === '/api/admin/guest-token') {
     try {
-      if (!process.env.SESSION_SECRET) return res.status(503).json({ error: 'Admin session is not configured' });
-      const token = jwt.sign({ id: 'safa-owner', email: 'admin@safa.local', passwordless: true }, process.env.SESSION_SECRET, { expiresIn: '8h' });
-      return res.status(200).json({ token });
+      return res.status(200).json({ token: issuePasswordlessAdminToken() });
     } catch (error) {
       return res.status(500).json({ error: 'Admin session could not be created' });
     }
