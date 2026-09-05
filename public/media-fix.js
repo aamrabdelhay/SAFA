@@ -1,20 +1,26 @@
 (() => {
-  const isBlobUrl = (src) => {
+  const blobHost = (src) => {
     try { return /\.blob\.vercel-storage\.com$/i.test(new URL(src, location.href).hostname); } catch { return false; }
   };
-  const toProxy = (src) => {
+  const proxyPath = (src) => {
     try {
       const u = new URL(src, location.href);
-      if (!isBlobUrl(src)) return src;
-      return `/api/blob?path=${encodeURIComponent(u.pathname.replace(/^\//, ''))}`;
-    } catch { return src; }
+      if (u.pathname === '/api/blob') return u.searchParams.get('path') || '';
+      if (u.pathname.startsWith('/api/blob/')) return decodeURIComponent(u.pathname.slice('/api/blob/'.length));
+      if (blobHost(src)) return u.pathname.replace(/^\/+/, '');
+      return '';
+    } catch { return ''; }
+  };
+  const toProxy = (src) => {
+    const path = proxyPath(src);
+    return path ? `/api/blob?path=${encodeURIComponent(path)}` : src;
   };
   const fixImage = (img) => {
     if (!(img instanceof HTMLImageElement) || img.dataset.blobFixed === '1') return;
     const src = img.getAttribute('src');
-    if (!src || !isBlobUrl(src)) return;
+    if (!src) return;
     const proxy = toProxy(src);
-    if (proxy !== src) {
+    if (proxy && proxy !== src) {
       img.dataset.blobFixed = '1';
       img.src = proxy;
     }
