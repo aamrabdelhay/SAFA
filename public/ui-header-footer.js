@@ -1,5 +1,6 @@
 (() => {
   const ADMIN_EMAIL = 'admin@safa.local';
+  const WHATSAPP = '01044665050';
   const CATEGORY_NAMES = new Set(['01','02','03','04','05','06','07','4','CLINIQUE','CUROLOGY','SKINCARE','FACE CARE','HAIR CARE','BODY CARE','LIP CARE']);
 
   const removeFooterCategories = () => {
@@ -14,24 +15,71 @@
     });
   };
 
+  const svgIcon = (type) => {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    if (type === 'ig') {
+      path.setAttribute('d', 'M7 2.75h10A4.25 4.25 0 0 1 21.25 7v10A4.25 4.25 0 0 1 17 21.25H7A4.25 4.25 0 0 1 2.75 17V7A4.25 4.25 0 0 1 7 2.75Z');
+      svg.appendChild(path);
+      const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      circle.setAttribute('cx','12'); circle.setAttribute('cy','12'); circle.setAttribute('r','4.25');
+      svg.appendChild(circle);
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx','17.5'); dot.setAttribute('cy','6.5'); dot.setAttribute('r','1');
+      dot.classList.add('dot'); svg.appendChild(dot);
+    } else if (type === 'fb') {
+      path.setAttribute('d', 'M13.5 21v-8h2.75l.5-3h-3.25V8.15c0-.87.24-1.65 1.7-1.65h1.75V3.8c-.3-.04-1.2-.1-2.25-.1-2.23 0-3.75 1.36-3.75 3.85V10H8.5v3h2.45v8');
+      svg.appendChild(path);
+    } else if (type === 'wa') {
+      path.setAttribute('d', 'M20.4 3.6A11.75 11.75 0 0 0 12 0.75 11.7 11.7 0 0 0 2 18.55L.8 23.2l4.77-1.18A11.75 11.75 0 0 0 12 23.25h.01A11.75 11.75 0 0 0 20.4 3.6Z');
+      svg.appendChild(path);
+      const phone = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      phone.setAttribute('d', 'M8.4 6.7c.3-.3.75-.35 1.1-.13l1.35.84c.37.23.52.69.35 1.1l-.55 1.28c.58 1.12 1.5 2.04 2.62 2.62l1.28-.55c.41-.17.87-.02 1.1.35l.84 1.35c.22.35.17.8-.13 1.1l-.62.62c-.5.5-1.23.68-1.9.47a10.1 10.1 0 0 1-6.92-6.92c-.21-.67-.03-1.4.47-1.9l.62-.62Z');
+      phone.setAttribute('fill','none'); phone.setAttribute('stroke','currentColor'); phone.setAttribute('stroke-width','1.2'); phone.setAttribute('stroke-linejoin','round');
+      svg.appendChild(phone);
+    } else if (type === 'tk') {
+      path.setAttribute('d', 'M14.1 3c.35 2.15 1.57 3.42 3.7 3.75v3.05c-1.15-.04-2.2-.33-3.16-.87v5.42a5.65 5.65 0 1 1-4.89-5.6v3.12a2.55 2.55 0 1 0 1.79 2.44V3h2.56Z');
+      svg.appendChild(path);
+    }
+    return svg;
+  };
+
   const styleSocialIcons = () => {
     const footer = document.querySelector('footer');
     if (!footer) return;
     footer.querySelectorAll('a').forEach(link => {
-      const text = link.textContent.replace(/\s+/g, ' ').trim();
-      const key = text.replace(/\s*↗\s*$/, '').replace(/\s*01044665050\s*$/, '').trim().toLowerCase();
-      const map = { instagram: 'ig', facebook: 'f', whatsapp: 'wa', tiktok: 'tk' };
-      const icon = map[key];
-      if (!icon) return;
-      link.querySelectorAll('.safa-social-icon').forEach(x => x.remove());
-      const span = document.createElement('span');
-      span.className = `safa-social-icon safa-social-${icon}`;
-      span.setAttribute('aria-hidden', 'true');
-      span.textContent = icon === 'ig' ? '◎' : icon === 'f' ? 'f' : icon === 'wa' ? '◌' : '♪';
-      link.prepend(span);
+      const raw = link.textContent.replace(/\s+/g, ' ').trim();
+      const lower = raw.toLowerCase();
+      let type = null;
+      if (lower.includes('instagram')) type = 'ig';
+      else if (lower.includes('facebook')) type = 'fb';
+      else if (lower.includes('whatsapp') || raw.includes(WHATSAPP)) type = 'wa';
+      else if (lower.includes('tiktok')) type = 'tk';
+      if (!type) return;
+
+      const number = raw.match(/01\d{9,10}/)?.[0] || WHATSAPP;
+      link.querySelectorAll('.safa-social-icon, .safa-social-label').forEach(x => x.remove());
+      const icon = document.createElement('span');
+      icon.className = `safa-social-icon safa-social-${type}`;
+      icon.appendChild(svgIcon(type));
+      link.prepend(icon);
+
+      if (type === 'wa') {
+        link.appendChild(document.createTextNode(number));
+      } else {
+        const label = document.createElement('span');
+        label.className = 'safa-social-label';
+        label.textContent = type === 'ig' ? 'Instagram' : type === 'fb' ? 'Facebook' : 'TikTok';
+        link.appendChild(label);
+      }
       link.style.display = 'inline-flex';
       link.style.alignItems = 'center';
-      link.style.gap = '8px';
+      link.style.gap = '9px';
+      link.style.minWidth = '0';
+      link.style.maxWidth = '100%';
     });
   };
 
@@ -40,10 +88,13 @@
     const style = document.createElement('style');
     style.id = 'safa-luxury-ui';
     style.textContent = `
-      .safa-social-icon{width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;border:1px solid currentColor;border-radius:50%;font:500 12px/1 Georgia,serif;letter-spacing:0;opacity:.82}
-      .safa-social-f{font-family:Arial,sans-serif;font-weight:600;font-size:13px}
-      .safa-social-wa{font-size:14px}
-      .safa-social-tk{font-size:13px}
+      .safa-social-icon{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;flex:0 0 22px;opacity:.82}
+      .safa-social-icon svg{width:21px;height:21px;display:block;fill:none;stroke:currentColor;stroke-width:1.35;stroke-linecap:round;stroke-linejoin:round}
+      .safa-social-icon .dot{fill:currentColor;stroke:none}
+      .safa-social-label{min-width:0;white-space:nowrap}
+      footer .socials{display:flex!important;flex-wrap:wrap;align-items:flex-start;gap:12px 24px;min-width:0}
+      footer .socials a{box-sizing:border-box;min-height:30px;white-space:nowrap;overflow-wrap:anywhere}
+      footer a{max-width:100%;overflow-wrap:anywhere}
       .safa-category-menu{position:fixed;inset:76px 6vw auto;z-index:9998;background:#faf8f2;border:1px solid rgba(33,31,27,.14);box-shadow:0 24px 70px rgba(20,18,15,.16);padding:28px;display:none}
       .safa-category-menu.is-open{display:block}
       .safa-category-menu-head{display:flex;justify-content:space-between;align-items:end;margin-bottom:20px}
@@ -52,8 +103,17 @@
       .safa-category-menu-close{border:0;background:none;font:400 22px/1 Georgia,serif;cursor:pointer}
       .safa-category-menu .catgrid{display:grid!important;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px}
       .safa-category-menu .cat{min-height:190px;cursor:pointer}
-      @media(max-width:1000px){.safa-category-menu .catgrid{grid-template-columns:repeat(4,minmax(0,1fr))}.safa-category-menu{inset:70px 3vw auto}}
-      @media(max-width:650px){.safa-category-menu .catgrid{grid-template-columns:repeat(2,minmax(0,1fr))}.safa-category-menu{inset:62px 14px auto;padding:18px;max-height:calc(100vh - 80px);overflow:auto}}
+      @media(max-width:1000px){.safa-category-menu .catgrid{grid-template-columns:repeat(4,minmax(0,1fr))}.safa-category-menu{inset:70px 3vw}}
+      @media(max-width:650px){
+        .safa-category-menu .catgrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+        .safa-category-menu{inset:62px 14px auto;padding:18px;max-height:calc(100vh - 80px);overflow:auto}
+        footer{padding:36px 20px 28px!important;overflow:hidden}
+        footer .socials{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:10px!important;width:100%!important}
+        footer .socials a{width:auto!important;max-width:100%!important;font-size:13px!important;line-height:1.35!important}
+        footer .socials a span{max-width:calc(100vw - 100px)}
+        footer > *, footer section, footer .footer-grid, footer .footer-inner, footer .footer-content{min-width:0!important;max-width:100%!important}
+        footer p, footer li, footer a, footer h2, footer h3{overflow-wrap:anywhere;word-break:normal}
+      }
     `;
     document.head.appendChild(style);
   };
