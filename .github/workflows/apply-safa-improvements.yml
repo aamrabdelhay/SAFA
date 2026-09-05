@@ -21,29 +21,13 @@ jobs:
       - name: Apply patch
         run: python3 scripts/apply-safa-improvements.py
       - name: Verify build
-        id: build
-        continue-on-error: true
         run: |
-          npm ci > build-error.txt 2>&1
-          npm run build >> build-error.txt 2>&1
-          code=$?
-          cat build-error.txt
-          exit $code
+          npm ci
+          npm run build
       - name: Commit changes
-        if: steps.build.outcome == 'success'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add src/main.jsx src/mobile.css
           git commit -m "SAFA improvements applied" || exit 0
           git push origin main
-      - name: Save diagnostic branch
-        if: steps.build.outcome != 'success'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git checkout -B debug-safa
-          git add build-error.txt
-          git commit -m "SAFA build diagnostic" || true
-          git push origin debug-safa --force
-          exit 1
