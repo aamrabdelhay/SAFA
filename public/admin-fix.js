@@ -1,41 +1,40 @@
 (() => {
-  const ADMIN_EMAIL = 'admin@safa.local';
   const token = () => localStorage.getItem('safaAdminToken');
   const api = (path, options = {}) => fetch(path, { ...options, headers: { ...(options.headers || {}), ...(token() ? { Authorization: `Bearer ${token()}` } : {}) } });
   let passwordlessLoginInProgress = false;
 
   async function passwordlessAdminLogin() {
-    if (token() || passwordlessLoginInProgress) return Boolean(token());
+    if (token()) return true;
+    if (passwordlessLoginInProgress) return false;
     passwordlessLoginInProgress = true;
     try {
-      const response = await fetch('/api/admin/guest-token', { method: 'POST' });
+      const response = await fetch('/api/admin/guest-token', { method: 'POST', cache: 'no-store' });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || !data.token) throw new Error(data.error || 'Admin access unavailable');
       localStorage.setItem('safaAdminToken', data.token);
       return true;
-    } catch (e) {
+    } catch {
       passwordlessLoginInProgress = false;
       return false;
     }
   }
 
   function loginUI(root) {
-    if (!root || root.dataset.adminLoginUi === '1' || token()) return;
+    if (!root || token()) return;
+    if (root.dataset.adminLoginUi === '1') return;
     root.dataset.adminLoginUi = '1';
+    // Never show the old password/login screen. The key opens the admin panel
+    // directly and this element stays invisible only while the session is made.
+    root.style.display = 'none';
     passwordlessAdminLogin().then(ok => {
-      if (ok) window.location.reload();
-      else {
-        root.dataset.adminLoginUi = '0';
-        const box = root.querySelector('.productform') || root;
-        box.innerHTML = '<div class="safa-admin-login-ui"><p class="eyebrow">ADMIN ACCESS</p><h2>ADMIN ACCESS</h2><p class="safa-admin-error">Admin access could not be started. Please refresh.</p></div>';
+      if (ok) {
+        window.location.reload();
+        return;
       }
+      // Retry silently; do not expose an authentication screen to the admin.
+      root.dataset.adminLoginUi = '0';
+      setTimeout(() => loginUI(root), 250);
     });
-  }
-
-  function showError(form, message) {
-    let el = form.querySelector('[data-admin-fix-error]');
-    if (!el) { el = document.createElement('p'); el.dataset.adminFixError = '1'; el.className = 'error'; form.appendChild(el); }
-    el.textContent = message;
   }
 
   async function editProduct(product) {
