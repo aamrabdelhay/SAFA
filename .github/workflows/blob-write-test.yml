@@ -2,6 +2,9 @@ name: Blob write test (temporary)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
