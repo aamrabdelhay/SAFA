@@ -3,7 +3,7 @@
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/health", "destination": "/api/health.js" },
-    { "source": "/api/blob/:path*", "destination": "/api/blob.js" },
+    { "source": "/api/blob/:path*", "destination": "/api/blob.js?path=:path*" },
     { "source": "/api/:path*", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
