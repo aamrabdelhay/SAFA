@@ -17,7 +17,6 @@ s=s.replace('<small>{p.name_ar}</small>','')
 s=s.replace('nameAr:form.nameAr,','nameAr:form.nameEn,').replace('descriptionAr:form.descriptionAr,','descriptionAr:form.descriptionEn,')
 s=re.sub(r'[\u0600-\u06ff]+','',s)
 
-# Smart fuzzy search helpers.
 if 'const normalizeSearch=' not in s:
     helper="""const normalizeSearch=v=>String(v||'').toLowerCase().normalize('NFKD').replace(/[\\u0300-\\u036f]/g,'').replace(/[^a-z0-9\\s]/g,' ').replace(/\\s+/g,' ').trim();
 const editDistance=(a,b)=>{a=normalizeSearch(a);b=normalizeSearch(b);if(!a)return b.length;if(!b)return a.length;const prev=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let cur=[i];for(let j=1;j<=b.length;j++)cur[j]=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));for(let j=0;j<=b.length;j++)prev[j]=cur[j]}return prev[b.length]};
@@ -27,23 +26,22 @@ const smartSearch=(products,q,includeWeak=false)=>{const query=normalizeSearch(q
 """
     s=s.replace('function App(){',helper+'function App(){',1)
 
-# Header search field: replace the existing search button without touching the rest of the header.
-old='<button onClick={()=>setSearch(search?\'\':\' \')} aria-label="Search">⌕</button>'
+old='<button onClick={()=>setSearch(\'\'===search?\'\':\' \')} aria-label="Search">⌕</button>'
+if old not in s:
+    old='<button onClick={()=>setSearch(search?\'\':\' \')} aria-label="Search">⌕</button>'
 new='<div className="header-search"><span>⌕</span><input aria-label="Search products" placeholder="Search products..." value={search} onChange={e=>{setSearch(e.target.value);setPage(\'products\')}} onKeyDown={e=>{if(e.key===\'Enter\')setPage(\'products\')}}/></div>'
 s=s.replace(old,new,1)
+# Support both the original and previously patched search expressions.
+s=s.replace("const filtered=useMemo(()=>products.filter(p=>(`${p.name_en} ${p.name_ar} ${p.description_en} ${p.category_en||''}`).toLowerCase().includes(search.toLowerCase())),[products,search]);", "const filtered=useMemo(()=>smartSearch(products,search),[products,search]);")
 s=s.replace("const filtered=useMemo(()=>products.filter(p=>(`${p.name_en} ${p.description_en} ${p.category_en||''}`).toLowerCase().includes(search.toLowerCase())),[products,search]);", "const filtered=useMemo(()=>smartSearch(products,search),[products,search]);")
 s=s.replace("{page==='checkout'&&<Checkout cart={cart} setPage={setPage}/>}", "{page==='checkout'&&<Checkout cart={cart} setPage={setPage} products={products} offers={offers} setCompletedOrder={setCompletedOrder}/>}\n  {page==='confirmation'&&completedOrder&&<Confirmation order={completedOrder} products={products} offers={offers} go={setPage}/>} ")
 
-# Replace Listing using stable function boundaries.
-start=s.find('function Listing(')
-end=s.find('\nfunction Categories',start)
+start=s.find('function Listing('); end=s.find('\nfunction Categories',start)
 if start>=0 and end>start:
     listing="""function Listing({products,categories,add,open,search,setSearch,title}){const closeMatches=useMemo(()=>smartSearch(products,search,true),[products,search]);return <main className=\"listing\"><div className=\"listingtop\"><div><p className=\"eyebrow\">SAFA / COLLECTION</p><h1>{title}</h1></div><input placeholder=\"Search the ritual...\" value={search} onChange={e=>setSearch(e.target.value)}/></div><div className=\"filters\"><button onClick={()=>setSearch('')}>ALL</button>{categories.map(c=><button key={c.id} onClick={()=>setSearch(c.name_en)}>{c.name_en.toUpperCase()}</button>)}</div>{!products.length&&search?<div className=\"search-empty panel\"><h2>Product not found.</h2><p>We could not find that exact product, but we have some similar options you may like.</p>{closeMatches.length?<div className=\"productgrid\">{closeMatches.map(p=><Product key={p.id} p={p} add={add} open={()=>open(p)}/>)}</div>:<p>No similar products are available right now.</p>}</div>:<div className=\"productgrid\">{products.length?products.map(p=><Product key={p.id} p={p} add={add} open={()=>open(p)}/>):<div className=\"panel\"><p>No products found.</p></div>}</div>}</main>}"""
     s=s[:start]+listing+s[end:]
 
-# Replace Checkout using stable function boundaries.
-start=s.find('function Checkout(')
-end=s.find('\n\nfunction Admin',start)
+start=s.find('function Checkout('); end=s.find('\n\nfunction Admin',start)
 if start>=0 and end>start:
     checkout="""const EGYPT_GOVERNORATES=['Cairo','Giza','Alexandria','Qalyubia','Dakahlia','Sharqia','Gharbia','Monufia','Beheira','Kafr El Sheikh','Damietta','Port Said','Ismailia','Suez','North Sinai','South Sinai','Fayoum','Beni Suef','Minya','Assiut','Sohag','Qena','Luxor','Aswan','Red Sea','New Valley','Matrouh'];
 function FieldMark({required=false}){return <span className={required?'required-dot':'optional-dot'} aria-hidden=\"true\">•</span>}
@@ -52,8 +50,6 @@ function Confirmation({order,products,offers,go}){const bought=order.purchased||
     s=s[:start]+checkout+s[end:]
 
 p.write_text(s)
-
-css=Path('src/mobile.css')
-c=css.read_text() if css.exists() else ''
+css=Path('src/mobile.css'); c=css.read_text() if css.exists() else ''
 extra='''\n/* Search and checkout polish */\n.header-search{display:flex;align-items:center;gap:8px;border-bottom:1px solid rgba(184,134,11,.45);padding:4px 0;min-width:190px}.header-search span{font-size:20px}.header-search input{border:0;background:transparent;outline:0;width:160px;font:inherit;color:inherit}.header-search input::placeholder{opacity:.55}.required-dot{color:#e31b23;text-shadow:0 0 7px rgba(227,27,35,.75);font-size:18px;line-height:1;margin-left:4px}.optional-dot{color:#20a35a;text-shadow:0 0 7px rgba(32,163,90,.65);font-size:18px;line-height:1;margin-left:4px}.field-legend{font-size:12px;opacity:.75;margin-bottom:20px}.checkout-error{margin-top:10px}.checkout select{width:100%;border:0;border-bottom:1px solid rgba(36,36,36,.25);background:transparent;padding:12px 0;font:inherit}.search-empty{margin-top:30px}.confirmation{max-width:1200px;margin:0 auto;padding:100px 5vw}.confirmationbox{text-align:center;padding:70px 30px;border:1px solid rgba(184,134,11,.28);background:rgba(247,245,240,.6)}.related-offers{margin-top:80px}.related-offers .sectionhead{margin-bottom:30px}@media(max-width:700px){.header-search{min-width:0;flex:1}.header-search input{width:100px}.confirmation{padding:60px 20px}.confirmationbox{padding:45px 20px}}\n'''
 if '/* Search and checkout polish */' not in c: css.write_text(c+extra)
