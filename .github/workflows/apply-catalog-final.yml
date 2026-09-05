@@ -2,7 +2,7 @@ name: Apply final SAFA catalog UX
 on:
   push:
     branches: [main]
-    paths: ['scripts/apply-catalog-final3.py']
+    paths: ['scripts/apply-catalog-final4.py']
 permissions:
   contents: write
 jobs:
@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Apply catalog UX
-        run: python3 scripts/apply-catalog-final3.py
+        run: python3 scripts/apply-catalog-final4.py
       - name: Build
         run: npm install --no-audit --no-fund && npm run build
       - name: Commit changes
