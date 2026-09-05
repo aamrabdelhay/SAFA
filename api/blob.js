@@ -2,8 +2,9 @@ const { get } = require('@vercel/blob');
 
 module.exports = async (req, res) => {
   try {
-    const raw = req.url.split('/api/blob/')[1]?.split('?')[0] || '';
-    const pathname = decodeURIComponent(raw);
+    const queryPath = req.query?.path;
+    const raw = queryPath || req.url.split('/api/blob/')[1]?.split('?')[0] || '';
+    const pathname = decodeURIComponent(String(raw));
     if (!pathname) return res.status(400).json({ error: 'Blob pathname is required' });
     const result = await get(pathname, {
       access: 'private',
