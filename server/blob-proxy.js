@@ -5,7 +5,7 @@
 const { Readable } = require('stream');
 const { get } = require('@vercel/blob');
 
-const BUILD_TAG = 'blob-proxy-diag-1';
+const BUILD_TAG = 'blob-proxy-diag-2';
 // TEMPORARY diagnostics: last blob-proxy errors (sanitized), for finding out
 // why reads fail in the Vercel deployment. Remove once resolved.
 const lastBlobErrors = [];
@@ -102,26 +102,41 @@ async function serveBlob(req, res) {
       return res.end(JSON.stringify({ error: 'Blob pathname is required', build: BUILD_TAG }));
     }
 
-    // TEMPORARY diagnostics: probe a known-existing blob and report why reads
-    // succeed or fail in this exact function instance. Remove once resolved.
+    // TEMPORARY diagnostics: probe known blobs + list store contents, and
+    // report why reads succeed or fail in this exact function instance.
+    // Remove once resolved.
     if (pathname === '__safa_diag__') {
-      try {
-        const probe = await get('safa/products/c9b21ae7-f762-435a-938c-fc8341607f85/1788635234597-1002236293.webp', blobCredentials());
-        const kind = probe && probe.stream ? (typeof probe.stream.pipe === 'function' ? 'node-stream' : 'web-stream') : 'empty';
-        recordBlobSuccess({ via: kind, probe: true, type: probe && probe.blob ? probe.blob.contentType : null, status: probe ? probe.statusCode : null });
+      const creds = blobCredentials();
+      const probes = [
+        'safa/products/c9b21ae7-f762-435a-938c-fc8341607f85/1788635234597-1002236293.webp',
+        'safa/products/7569dbb0-d5f3-4e86-a922-7cad96148080/1788632321814-Screenshot-2026-09-05-142434.png',
+        'safa/products/39c8b5a0-1758-4b5f-bfd1-55a9079a1fd0/1788624684967-Screenshot-2026-09-05-142434.png',
+        'safa/products/39c8b5a0-1758-4b5f-bfd1-55a9079a1fd0/1788626890297-Screenshot-2026-07-10-194503.png',
+      ];
+      const results = [];
+      for (const p of probes) {
         try {
-          if (probe && probe.stream) {
-            if (typeof probe.stream.cancel === 'function') await probe.stream.cancel();
-            else if (typeof probe.stream.destroy === 'function') probe.stream.destroy();
-          }
-        } catch {}
+          const r = await get(p, creds);
+          results.push({ p: p.slice(-40), found: Boolean(r && r.blob) });
+          try { if (r && r.stream) { if (typeof r.stream.cancel === 'function') await r.stream.cancel(); else if (typeof r.stream.destroy === 'function') r.stream.destroy(); } } catch {}
+        } catch (error) {
+          results.push({ p: p.slice(-40), error: redact(error && error.message) });
+          recordBlobError('probe', error);
+        }
+      }
+      let listing = null;
+      try {
+        const { list } = require('@vercel/blob');
+        const l = await list({ prefix: 'safa', limit: 100, token: creds.token, oidcToken: creds.oidcToken, storeId: creds.storeId });
+        listing = { count: l.blobs.length, items: l.blobs.slice(0, 30).map(b => ({ pathname: b.pathname, size: b.size, uploadedAt: b.uploadedAt })) };
       } catch (error) {
-        recordBlobError('probe', error);
+        listing = { error: redact(error && error.message) };
+        recordBlobError('list', error);
       }
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/json; charset=utf-8');
       res.setHeader('Cache-Control', 'no-store');
-      return res.end(JSON.stringify(blobDebugInfo()));
+      return res.end(JSON.stringify({ ...blobDebugInfo(), probes: results, listing }));
     }
 
     let result = null;
