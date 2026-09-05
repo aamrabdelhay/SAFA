@@ -1,0 +1,37 @@
+name: Blob write test (temporary)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  write-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upload a test image to the production API and read it back
+        run: |
+          set -x
+          BASE="https://safa-ebon-ten.vercel.app"
+          echo "--- health:"
+          curl -s -m 30 "$BASE/api/health" ; echo
+          TOKEN=$(curl -s -m 30 "$BASE/api/admin/guest-token" | jq -r '.token // empty')
+          echo "token acquired: ${TOKEN:+yes}"
+          echo 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==' | base64 -d > test.png
+          echo "--- upload:"
+          UP=$(curl -s -m 60 -F "file=@test.png;type=image/png" -F "folder=diag-test" -H "Authorization: Bearer $TOKEN" "$BASE/api/admin/upload")
+          echo "$UP"
+          URL=$(echo "$UP" | jq -r '.url // empty')
+          if [ -z "$URL" ]; then echo "UPLOAD FAILED"; exit 1; fi
+          sleep 5
+          echo "--- read back $URL :"
+          curl -s -m 60 -D headers.txt -o body.bin "$BASE$URL"
+          grep -i "^HTTP\|content-type" headers.txt
+          echo "body bytes: $(wc -c < body.bin)"
+          head -c 20 body.bin | od -c | head -3
+          echo "--- second read (after 10s):"
+          sleep 10
+          curl -s -m 60 -o /dev/null -w "status=%{http_code} type=%{content_type} size=%{size_download}\n" "$BASE$URL"
+          echo "--- existing stored image read:"
+          curl -s -m 60 -o /dev/null -w "status=%{http_code} type=%{content_type} size=%{size_download}\n" "$BASE/api/blob/safa%2Fproducts%2Fc9b21ae7-f762-435a-938c-fc8341607f85%2F1788635234597-1002236293.webp"
