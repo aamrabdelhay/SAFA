@@ -2,41 +2,34 @@
   const ADMIN_EMAIL = 'admin@safa.local';
   const token = () => localStorage.getItem('safaAdminToken');
   const api = (path, options = {}) => fetch(path, { ...options, headers: { ...(options.headers || {}), ...(token() ? { Authorization: `Bearer ${token()}` } : {}) } });
+  let passwordlessLoginInProgress = false;
+
+  async function passwordlessAdminLogin() {
+    if (token() || passwordlessLoginInProgress) return Boolean(token());
+    passwordlessLoginInProgress = true;
+    try {
+      const response = await fetch('/api/admin/guest-token', { method: 'POST' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.token) throw new Error(data.error || 'Admin access unavailable');
+      localStorage.setItem('safaAdminToken', data.token);
+      return true;
+    } catch (e) {
+      passwordlessLoginInProgress = false;
+      return false;
+    }
+  }
 
   function loginUI(root) {
     if (!root || root.dataset.adminLoginUi === '1' || token()) return;
     root.dataset.adminLoginUi = '1';
-    const box = root.querySelector('.productform') || root;
-    box.innerHTML = '';
-    const wrap = document.createElement('div');
-    wrap.className = 'safa-admin-login-ui';
-    wrap.innerHTML = '<p class="eyebrow">ADMIN ACCESS</p><h2>ADMIN ACCESS</h2><label class="safa-admin-password-label">PASSWORD<input class="safa-admin-password" type="password" autocomplete="current-password" placeholder="Enter password" /></label><button type="button" class="goldbtn safa-admin-login-button">ENTER ↗</button><p class="safa-admin-error" aria-live="polite"></p>';
-    box.appendChild(wrap);
-    const input = wrap.querySelector('.safa-admin-password');
-    const button = wrap.querySelector('.safa-admin-login-button');
-    const error = wrap.querySelector('.safa-admin-error');
-    const submit = async () => {
-      const password = input.value.trim();
-      if (!password) { input.focus(); return; }
-      button.disabled = true;
-      button.textContent = 'ENTERING…';
-      error.textContent = '';
-      try {
-        const response = await api('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: ADMIN_EMAIL, password }) });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.token) throw new Error(data.error || 'Invalid password');
-        localStorage.setItem('safaAdminToken', data.token);
-        window.location.reload();
-      } catch (e) {
-        error.textContent = e.message || 'Invalid password';
-        button.disabled = false;
-        button.textContent = 'ENTER ↗';
-        input.focus();
+    passwordlessAdminLogin().then(ok => {
+      if (ok) window.location.reload();
+      else {
+        root.dataset.adminLoginUi = '0';
+        const box = root.querySelector('.productform') || root;
+        box.innerHTML = '<div class="safa-admin-login-ui"><p class="eyebrow">ADMIN ACCESS</p><h2>ADMIN ACCESS</h2><p class="safa-admin-error">Admin access could not be started. Please refresh.</p></div>';
       }
-    };
-    button.addEventListener('click', submit);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
-    setTimeout(() => input.focus(), 50);
+    });
   }
 
   function showError(form, message) {
