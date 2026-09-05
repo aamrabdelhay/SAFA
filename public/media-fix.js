@@ -16,7 +16,7 @@
     return path ? `/api/blob?path=${encodeURIComponent(path)}` : src;
   };
   const fixImage = (img) => {
-    if (!(img instanceof HTMLImageElement) || img.dataset.blobFixed === '1') return;
+    if (!(img instanceof HTMLImageElement)) return;
     const src = img.getAttribute('src');
     if (!src) return;
     const proxy = toProxy(src);
@@ -39,64 +39,84 @@
   const showPreview = (input, file) => {
     const box = previewBox(input);
     box.replaceChildren();
-    if (!file || !file.type.startsWith('image/')) return;
+    if (!file || !file.type.startsWith('image/')) return false;
     const img = document.createElement('img');
     img.alt = 'Selected image preview';
-    const url = URL.createObjectURL(file);
-    img.src = url;
-    img.onload = () => URL.revokeObjectURL(url);
+    img.src = URL.createObjectURL(file);
+    img.onload = () => URL.revokeObjectURL(img.src);
     box.appendChild(img);
+    return true;
   };
 
-  const addConfirm = (input) => {
-    if (!(input instanceof HTMLInputElement) || input.type !== 'file' || input.dataset.confirmBound === '1') return;
-    input.dataset.confirmBound = '1';
-    input.addEventListener('change', () => {
-      const file = input.files?.[0];
-      showPreview(input, file);
-      let button = input.parentElement?.querySelector('.safa-confirm-upload');
-      if (!file || !file.type.startsWith('image/')) {
-        if (button) button.remove();
-        return;
-      }
-      if (!button) {
-        button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'safa-confirm-upload';
-        button.textContent = /logo/i.test(input.parentElement?.textContent || '') ? 'CONFIRM & SAVE LOGO' : 'CONFIRM IMAGE';
-        input.parentElement?.appendChild(button);
-      }
-      button.onclick = () => {
-        input.dataset.confirmed = '1';
+  const confirmButton = (input) => {
+    let button = input.parentElement?.querySelector('.safa-confirm-upload');
+    if (!button) {
+      button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'safa-confirm-upload';
+      button.addEventListener('click', () => {
+        const file = input.files?.[0];
+        if (!file || !file.type.startsWith('image/')) return;
+        input.dataset.safaConfirmed = '1';
         button.textContent = 'CONFIRMED ✓';
         button.disabled = true;
+        // Re-dispatch a real bubbled change so the existing React handler
+        // receives the file only after the user explicitly confirms it.
         input.dispatchEvent(new Event('change', { bubbles: true }));
-      };
-    });
+      });
+      input.parentElement?.appendChild(button);
+    }
+    button.textContent = /logo/i.test(input.parentElement?.textContent || '')
+      ? 'CONFIRM & SAVE LOGO'
+      : 'CONFIRM IMAGE';
+    button.disabled = false;
+    return button;
   };
 
-  // React's change handler must not run until the user explicitly confirms the image.
+  const handleFileSelection = (input) => {
+    if (!(input instanceof HTMLInputElement) || input.type !== 'file') return false;
+    const file = input.files?.[0];
+    const previewed = showPreview(input, file);
+    const button = input.parentElement?.querySelector('.safa-confirm-upload');
+    if (!file || !previewed) {
+      if (button) button.remove();
+      delete input.dataset.safaConfirmed;
+      return false;
+    }
+    confirmButton(input);
+    return true;
+  };
+
+  // Intercept native file changes before React. The file is previewed immediately,
+  // but React's upload/save handler is allowed to run only after explicit confirmation.
   document.addEventListener('change', (event) => {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || input.type !== 'file') return;
-    if (input.dataset.confirmed === '1') {
-      delete input.dataset.confirmed;
+    if (input.dataset.safaConfirmed === '1') {
+      delete input.dataset.safaConfirmed;
       return;
     }
-    if (input.dataset.confirmBound === '1') event.stopImmediatePropagation();
+    if (handleFileSelection(input)) event.stopImmediatePropagation();
   }, true);
 
   const scan = (root = document) => {
     root.querySelectorAll?.('img').forEach(fixImage);
-    root.querySelectorAll?.('input[type="file"]').forEach(addConfirm);
-    if (root instanceof HTMLImageElement) fixImage(root);
-    if (root instanceof HTMLInputElement) addConfirm(root);
   };
 
-  const observer = new MutationObserver(mutations => mutations.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1) scan(n); })));
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(m => m.addedNodes.forEach(n => {
+      if (n.nodeType === 1) scan(n);
+    }));
+  });
+
   const start = () => {
     scan();
     observer.observe(document.documentElement, { subtree: true, childList: true });
   };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true }); else start();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
 })();
