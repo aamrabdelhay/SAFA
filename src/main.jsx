@@ -23,7 +23,7 @@ function App(){
    <div className="actions"><div className="header-search"><span>⌕</span><input aria-label="Search products" placeholder="Search products..." value={search} onChange={e=>{setSearch(e.target.value);setPage('products')}} onKeyDown={e=>{if(e.key==='Enter')setPage('products')}}/></div><button className="bag" onClick={()=>setPage('cart')}>Bag <b>{cart.length}</b></button><button className="keybutton" onClick={()=>setPage('admin')} aria-label="Admin">⚿</button></div>
   </header>
   {page==='home'&&<Home logo={logo} products={products} categories={categories} offers={offers} add={add} open={setSelected} go={setPage} t={t}/>} 
-  <section className="all-products-home"><div className="sectionhead"><div><p className="eyebrow">SAFA / COLLECTION</p><h2>All Products</h2></div><button onClick={()=>setPage('products')}>VIEW ALL ↗</button></div><div className="productgrid">{products.map(p=><Product key={p.id} p={p} add={addToCart} open={()=>setSelectedProduct(p)}/>)}</div></section>{page==='products'&&<Listing title={t.products} products={filtered} categories={categories} add={add} open={setSelected} search={search} setSearch={setSearch}/>} 
+  {page==='products'&&<Listing title={t.products} products={filtered} categories={categories} add={add} open={setSelected} search={search} setSearch={setSearch}/>} 
   {page==='categories'&&<Categories categories={categories} products={products} add={add} open={setSelected} go={setPage}/>} 
   {page==='offers'&&<Offers offers={offers} products={products} add={add} open={setSelected}/>} 
   {page==='cart'&&<Cart cart={cart} setCart={setCart} checkout={()=>setPage('checkout')}/>} 
