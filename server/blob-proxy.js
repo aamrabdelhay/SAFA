@@ -5,7 +5,7 @@
 const { Readable } = require('stream');
 const { get } = require('@vercel/blob');
 
-const BUILD_TAG = 'blob-proxy-diag-4';
+const BUILD_TAG = 'blob-proxy-diag-5';
 // TEMPORARY diagnostics: last blob-proxy errors (sanitized), for finding out
 // why reads fail in the Vercel deployment. Remove once resolved.
 const lastBlobErrors = [];
