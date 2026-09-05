@@ -1,0 +1,63 @@
+name: Make SAFA English Only
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  english-only:
+    if: ${{ !startsWith(github.event.head_commit.message, 'Make SAFA English Only') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Remove Arabic UI
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path('src/main.jsx')
+          s=p.read_text()
+
+          # English-only application state and navigation.
+          s=s.replace("[page,setPage]=useState('home'),[cart,setCart]=useState([]),[lang,setLang]=useState('EN'),[search,setSearch]=useState(''),", "[page,setPage]=useState('home'),[cart,setCart]=useState([]),[search,setSearch]=useState(''),")
+          s=re.sub(r"\n const ar=lang==='AR';", "", s)
+          s=re.sub(r"\n const t=ar\?\{products:'المنتجات',categories:'الفئات',offers:'العروض',cart:'السلة',shop:'تسوقي المجموعة'\}:\{products:'Products',categories:'Categories',offers:'Offers',cart:'Bag',shop:'SHOP COLLECTION'\};", "\n const t={products:'Products',categories:'Categories',offers:'Offers',cart:'Bag',shop:'SHOP COLLECTION'};", s)
+          s=s.replace("<div dir={ar?'rtl':'ltr'}>", "<div>")
+          s=s.replace("<button onClick={()=>setLang(ar?'EN':'AR')}>{ar?'EN':'AR'}</button>", "")
+          s=s.replace('alt="SAFA صفا"','alt="SAFA"')
+          s=s.replace('<b>Safa &amp; More</b><span>صفا</span>','<b>Safa &amp; More</b>')
+          s=s.replace('`${p.name_en} ${p.name_ar} ${p.description_en} ${p.category_en||\'\'}`','`${p.name_en} ${p.description_en} ${p.category_en||\'\'}`')
+
+          # Remove Arabic-only product fields from the visible admin form while preserving DB compatibility.
+          s=s.replace("nameAr:'',", "nameAr:'',")
+          s=re.sub(r"<label>Product name \(Arabic\)<input required value=\{form\.nameAr\} onChange=\{e=>change\('nameAr',e\.target\.value\)\}/></label>", "", s)
+          s=re.sub(r"<label>Description \(Arabic\)<textarea value=\{form\.descriptionAr\} onChange=\{e=>change\('descriptionAr',e\.target\.value\)\}/></label>", "", s)
+          s=s.replace("<small>{p.name_ar}</small>", "")
+
+          # Keep Arabic database fields populated from English when creating a product, without exposing Arabic UI.
+          s=s.replace("descriptionAr:form.descriptionAr,", "descriptionAr:form.descriptionEn,")
+          s=s.replace("nameAr:form.nameAr,", "nameAr:form.nameEn,")
+
+          # Remove Arabic strings that can appear in the logo fallback or image alt text.
+          s=re.sub(r'صفا', '', s)
+
+          # English-only document direction.
+          p.write_text(s)
+          PY
+      - name: Verify build
+        run: |
+          npm ci
+          npm run build
+      - name: Commit English-only UI
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.jsx
+          git commit -m "Make SAFA English Only" || exit 0
+          git push origin main
