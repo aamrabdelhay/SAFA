@@ -22,7 +22,7 @@ jobs:
         run: python3 scripts/apply-safa-improvements.py
       - name: Verify build
         run: |
-          npm ci
+          npm install --no-audit --no-fund
           npm run build
       - name: Commit changes
         run: |
