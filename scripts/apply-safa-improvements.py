@@ -3,11 +3,8 @@ import re
 
 p=Path('src/main.jsx')
 s=p.read_text()
-
-# English-only UI.
 s=s.replace("[page,setPage]=useState('home'),[cart,setCart]=useState([]),[lang,setLang]=useState('EN'),[search,setSearch]=useState(''),", "[page,setPage]=useState('home'),[cart,setCart]=useState([]),[search,setSearch]=useState(''),[completedOrder,setCompletedOrder]=useState(null),")
-if '[completedOrder,setCompletedOrder]' not in s:
-    s=s.replace("[page,setPage]=useState('home'),[cart,setCart]=useState([]),[search,setSearch]=useState(''),", "[page,setPage]=useState('home'),[cart,setCart]=useState([]),[search,setSearch]=useState(''),[completedOrder,setCompletedOrder]=useState(null),")
+if '[completedOrder,setCompletedOrder]' not in s:s=s.replace("[page,setPage]=useState('home'),[cart,setCart]=useState([]),[search,setSearch]=useState(''),", "[page,setPage]=useState('home'),[cart,setCart]=useState([]),[search,setSearch]=useState(''),[completedOrder,setCompletedOrder]=useState(null),")
 s=s.replace(" const ar=lang==='AR';\n",'')
 s=re.sub(r'\n const t=ar\?.*?;',"\n const t={products:'Products',categories:'Categories',offers:'Offers',cart:'Bag',shop:'SHOP COLLECTION'};",s,count=1)
 s=s.replace("<div dir={ar?'rtl':'ltr'}>",'<div>')
@@ -25,16 +22,18 @@ const smartSearch=(products,q,includeWeak=false)=>{const query=normalizeSearch(q
 
 """
     s=s.replace('function App(){',helper+'function App(){',1)
-
-old='<button onClick={()=>setSearch(\'\'===search?\'\':\' \')} aria-label="Search">⌕</button>'
-if old not in s:
-    old='<button onClick={()=>setSearch(search?\'\':\' \')} aria-label="Search">⌕</button>'
+old='<button onClick={()=>setSearch(search?\'\':\' \')} aria-label="Search">⌕</button>'
 new='<div className="header-search"><span>⌕</span><input aria-label="Search products" placeholder="Search products..." value={search} onChange={e=>{setSearch(e.target.value);setPage(\'products\')}} onKeyDown={e=>{if(e.key===\'Enter\')setPage(\'products\')}}/></div>'
 s=s.replace(old,new,1)
-# Support both the original and previously patched search expressions.
 s=s.replace("const filtered=useMemo(()=>products.filter(p=>(`${p.name_en} ${p.name_ar} ${p.description_en} ${p.category_en||''}`).toLowerCase().includes(search.toLowerCase())),[products,search]);", "const filtered=useMemo(()=>smartSearch(products,search),[products,search]);")
 s=s.replace("const filtered=useMemo(()=>products.filter(p=>(`${p.name_en} ${p.description_en} ${p.category_en||''}`).toLowerCase().includes(search.toLowerCase())),[products,search]);", "const filtered=useMemo(()=>smartSearch(products,search),[products,search]);")
 s=s.replace("{page==='checkout'&&<Checkout cart={cart} setPage={setPage}/>}", "{page==='checkout'&&<Checkout cart={cart} setPage={setPage} products={products} offers={offers} setCompletedOrder={setCompletedOrder}/>}\n  {page==='confirmation'&&completedOrder&&<Confirmation order={completedOrder} products={products} offers={offers} go={setPage}/>} ")
+
+# Remove all existing checkout helper declarations before inserting the canonical block.
+while 'const EGYPT_GOVERNORATES=' in s:
+    a=s.index('const EGYPT_GOVERNORATES='); b=s.index('];',a)+2; s=s[:a]+s[b:]
+while 'function FieldMark(' in s:
+    a=s.index('function FieldMark('); b=s.index('}',a)+1; s=s[:a]+s[b:]
 
 start=s.find('function Listing('); end=s.find('\nfunction Categories',start)
 if start>=0 and end>start:
