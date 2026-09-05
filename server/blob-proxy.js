@@ -5,7 +5,7 @@
 const { Readable } = require('stream');
 const { get } = require('@vercel/blob');
 
-const BUILD_TAG = 'blob-proxy-diag-5';
+const BUILD_TAG = 'blob-proxy-diag-6';
 // TEMPORARY diagnostics: last blob-proxy errors (sanitized), for finding out
 // why reads fail in the Vercel deployment. Remove once resolved.
 const lastBlobErrors = [];
@@ -117,7 +117,12 @@ async function serveBlob(req, res) {
       for (const p of probes) {
         try {
           const r = await get(p, creds);
-          results.push({ p: p.slice(-40), found: Boolean(r && r.blob) });
+          let uncached = null;
+          if (!(r && r.blob)) {
+            try { const u = await get(p, { ...creds, useCache: false }); uncached = Boolean(u && u.blob); try { if (u && u.stream && typeof u.stream.cancel === 'function') await u.stream.cancel(); } catch {} }
+            catch (e2) { uncached = redact(e2 && e2.message); }
+          }
+          results.push({ p: p.slice(-40), found: Boolean(r && r.blob), uncached });
           try { if (r && r.stream) { if (typeof r.stream.cancel === 'function') await r.stream.cancel(); else if (typeof r.stream.destroy === 'function') r.stream.destroy(); } } catch {}
         } catch (error) {
           results.push({ p: p.slice(-40), error: redact(error && error.message) });
