@@ -24,6 +24,9 @@ app.use(rateLimit({windowMs:60000,max:120}));
 // images displayable after a refresh in both the Vercel deployment and local dev.
 app.use((req,res,next)=>{const originalJson=res.json.bind(res);res.json=body=>originalJson(mapPrivateBlobUrls(body));next();});
 app.use((req,res,next)=>{const url=req.originalUrl||req.url||'';if(url.split('?')[0]==='/api/blob'||url.split('?')[0].startsWith('/api/blob/'))return serveBlob(req,res);next();});
+// TEMPORARY diagnostics: raw (unmapped) image URLs from the DB to discover
+// which blob store old uploads actually live in. Remove once resolved.
+app.get('/api/__diag_db',async(req,res)=>{try{const images=(await q('select product_id,url from product_images order by position,id limit 20')).rows;const logo=(await q("select value from site_settings where key='logo' limit 1")).rows[0];res.setHeader('Content-Type','application/json');res.end(JSON.stringify({images,logo:logo?String(logo.value).slice(0,300):null}))}catch(e){res.setHeader('Content-Type','application/json');res.end(JSON.stringify({error:e.message}))}});
 const q=(sql,args)=>pool.query(sql,args);
 const auth=(req,res,next)=>{try{const token=(req.headers.authorization||'').replace(/^Bearer\s+/,'');if(!token)throw Error();req.admin=jwt.verify(token,process.env.SESSION_SECRET);next()}catch{res.status(401).json({error:'Authentication required'})}};
 const slug=s=>s.toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')||`product-${Date.now()}`;

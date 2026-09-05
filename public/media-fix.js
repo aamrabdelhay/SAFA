@@ -3,7 +3,7 @@
   // not publicly readable) into the same-origin /api/blob proxy so uploaded
   // images keep displaying after a refresh.
   const blobHost = (src) => {
-    try { return /\.blob\.vercel-storage\.com$/i.test(new URL(src, location.href).hostname); } catch { return false; }
+    try { return /\.private\.blob\.vercel-storage\.com$/i.test(new URL(src, location.href).hostname); } catch { return false; }
   };
   const proxyPath = (src) => {
     try {
