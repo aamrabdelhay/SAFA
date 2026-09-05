@@ -23,7 +23,12 @@ jobs:
       - name: Verify build
         run: |
           npm install --no-audit --no-fund
-          npm run build
+          for i in 1 2 3; do
+            npm run build && exit 0
+            echo "Build attempt $i failed; retrying..."
+            sleep 3
+          done
+          exit 1
       - name: Commit changes
         run: |
           git config user.name "github-actions[bot]"
