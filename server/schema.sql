@@ -12,3 +12,20 @@ CREATE TABLE IF NOT EXISTS homepage_sections(id uuid PRIMARY KEY DEFAULT gen_ran
 CREATE INDEX IF NOT EXISTS products_search_idx ON products USING gin(to_tsvector('simple',name_en||' '||description_en));
 ALTER TABLE products ADD COLUMN IF NOT EXISTS specifications jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_specification text DEFAULT '';
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM site_settings WHERE key='safa_default_categories_seeded') THEN
+    INSERT INTO categories(name_en,name_ar,slug,description_en,description_ar,image_url,position,active)
+    VALUES
+      ('Skincare','Skincare','skincare','','',NULL,0,true),
+      ('Face Care','Face Care','face-care','','',NULL,1,true),
+      ('Hair Care','Hair Care','hair-care','','',NULL,2,true),
+      ('Body Care','Body Care','body-care','','',NULL,3,true),
+      ('Lip Care','Lip Care','lip-care','','',NULL,4,true)
+    ON CONFLICT (slug) DO NOTHING;
+
+    INSERT INTO site_settings(key,value) VALUES('safa_default_categories_seeded','1')
+    ON CONFLICT(key) DO UPDATE SET value='1',updated_at=now();
+  END IF;
+END $$;
