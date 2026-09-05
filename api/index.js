@@ -8,8 +8,8 @@ if (process.env.BLOB_STORE_ID && !process.env.BLOB_READ_WRITE_TOKEN) process.env
 
 const realPut = blob.put;
 blob.put = (pathname, body, options = {}) => realPut(pathname, body, {
+  access: 'public',
   ...options,
-  access: 'private',
   token: undefined,
   oidcToken: process.env.VERCEL_OIDC_TOKEN,
   storeId: process.env.BLOB_STORE_ID,
