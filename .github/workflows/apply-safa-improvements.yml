@@ -1,0 +1,24 @@
+name: Apply SAFA improvements
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['src/main.jsx','src/mobile.css']
+permissions:
+  contents: write
+jobs:
+  improve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {ref: main, fetch-depth: 0}
+      - name: Apply patch
+        run: python3 scripts/apply-safa-improvements.py
+      - name: Verify build
+        run: npm install --no-audit --no-fund && npm run build
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main.jsx
+          git commit -m 'Add product variants and quantity selection' || exit 0
+          git push origin main
