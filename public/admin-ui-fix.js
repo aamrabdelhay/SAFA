@@ -1,3 +1,4 @@
+/* SAFA admin UI fix v2 */
 (() => {
   const hideDashboardBranding = () => {
     document.querySelectorAll('.admin .admin-title h1').forEach(el => {
@@ -29,14 +30,17 @@
     });
   };
 
-  const style = document.createElement('style');
-  style.textContent = `
-    .admin .modal { display:grid !important; visibility:visible !important; opacity:1 !important; z-index:9999 !important; }
-    .admin .modal .productform { display:block !important; visibility:visible !important; opacity:1 !important; background:#faf8f2 !important; color:#211f1b !important; }
-    .adminnav button { pointer-events:auto !important; position:relative !important; z-index:3 !important; }
-    .admin .add-logo { display:none !important; }
-  `;
-  document.head.appendChild(style);
+  if (!document.getElementById('safa-admin-ui-fix-style')) {
+    const style = document.createElement('style');
+    style.id = 'safa-admin-ui-fix-style';
+    style.textContent = `
+      .admin .modal { display:grid !important; visibility:visible !important; opacity:1 !important; z-index:9999 !important; }
+      .admin .modal .productform { display:block !important; visibility:visible !important; opacity:1 !important; background:#faf8f2 !important; color:#211f1b !important; }
+      .adminnav button { pointer-events:auto !important; position:relative !important; z-index:3 !important; }
+      .admin .add-logo { display:none !important; }
+    `;
+    document.head.appendChild(style);
+  }
 
   const observer = new MutationObserver(stabilizeAdminUI);
   observer.observe(document.documentElement, { childList: true, subtree: true });
