@@ -1,4 +1,5 @@
 const blob = require('@vercel/blob');
+const jwt = require('jsonwebtoken');
 
 // The SAFA Blob store is connected as a private store. New Vercel projects use
 // short-lived OIDC credentials instead of BLOB_READ_WRITE_TOKEN.
@@ -46,6 +47,18 @@ function mapPrivateBlobUrls(value) {
 }
 
 module.exports = async (req, res) => {
+  // SAFA admin access is intentionally passwordless: the admin key on the
+  // storefront requests a short-lived signed session token directly.
+  if (req.url.split('?')[0] === '/api/admin/guest-token') {
+    try {
+      if (!process.env.SESSION_SECRET) return res.status(503).json({ error: 'Admin session is not configured' });
+      const token = jwt.sign({ id: 'safa-owner', email: 'admin@safa.local', passwordless: true }, process.env.SESSION_SECRET, { expiresIn: '8h' });
+      return res.status(200).json({ token });
+    } catch (error) {
+      return res.status(500).json({ error: 'Admin session could not be created' });
+    }
+  }
+
   if (req.url.startsWith('/api/blob/')) {
     if (!blobConnected) return res.status(503).json({ error: 'Vercel Blob is not connected' });
     try {
