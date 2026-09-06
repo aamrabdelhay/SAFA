@@ -1,8 +1,14 @@
-/* SAFA homepage identity layer — scoped to the home hero only. */
-.hero{min-height:900px;padding:130px 7vw 80px;position:relative;overflow:hidden;color:#f8f2e5;background:radial-gradient(circle at 50% 34%,rgba(184,134,11,.16),transparent 30%),radial-gradient(circle at 50% 100%,rgba(255,214,125,.07),transparent 42%),#050505}
-.hero::after{content:'';position:absolute;inset:auto 0 0;height:180px;background:linear-gradient(to bottom,transparent,rgba(5,5,5,.55));pointer-events:none}
-.hero-copy{position:relative;z-index:1;max-width:760px}
-.hero-copy::before{content:'';display:block;width:min(390px,72vw);aspect-ratio:1114 / 1536;margin:-34px auto -52px;background:url('/safa-logo.svg') center/contain no-repeat;filter:drop-shadow(0 18px 42px rgba(0,0,0,.42))}
-.hero .eyebrow{color:#d7b66a}.hero h1{font-size:86px;color:#f8f2e5;text-shadow:0 6px 30px rgba(0,0,0,.35)}.hero h1 i{color:#d6ad58}.hero .lead{color:#cfc4ae}.hero .goldbtn{background:#c89b4a;border-color:#d7b66a;box-shadow:0 12px 35px rgba(184,134,11,.16)}.hero .goldbtn:hover{background:#e0bd72;color:#17130d}
-@media(max-width:700px){.hero{min-height:820px;padding:118px 20px 55px}.hero-copy::before{width:min(300px,78vw);margin:-18px auto -38px}.hero h1{font-size:clamp(58px,17vw,76px);margin:18px 0 22px}}
-@media(max-width:380px){.hero{min-height:780px;padding-left:16px;padding-right:16px}.hero-copy::before{width:270px}}
+/* SAFA homepage logo — scoped to the home hero only. */
+.hero{min-height:760px;padding:160px 10vw 90px;position:relative;overflow:hidden;color:#211f1b;background:linear-gradient(110deg,#f7f3e9,#eee6d6)}
+.hero-copy{position:relative;z-index:1;max-width:720px;text-align:center;margin-left:auto;margin-right:auto}
+/* The hero logo is already rendered by the existing homepage enhancement. Do not render a second copy. */
+.hero-copy::before{display:none!important;content:none!important}
+.hero-copy .hero-logo{display:block!important;width:min(390px,62vw)!important;max-width:390px!important;max-height:none!important;height:auto!important;object-fit:contain!important;margin:0 auto 28px!important;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;opacity:1!important;mix-blend-mode:normal!important;filter:drop-shadow(0 10px 24px rgba(33,31,27,.10))!important}
+.hero .eyebrow{color:#8b7751}
+.hero h1{font:500 100px/0.82 'Cormorant Garamond';color:#211f1b;text-shadow:none}
+.hero h1 i{color:#b8860b}
+.hero .lead{color:#6f6a60}
+.hero .goldbtn{background:#b8860b;border-color:#b8860b;box-shadow:none}
+.hero .goldbtn:hover{background:#211f1b;color:#fff}
+@media(max-width:700px){.hero{min-height:700px;padding:130px 8vw 50px}.hero-copy .hero-logo{width:min(300px,72vw)!important;max-width:300px!important;margin-bottom:22px!important}.hero h1{font-size:78px;margin:26px 0}.hero .lead{margin-bottom:30px}}
+@media(max-width:380px){.hero-copy .hero-logo{width:270px!important;max-width:270px!important}}
