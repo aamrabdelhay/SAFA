@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm install express-rate-limit@8.7.0 --no-save --package-lock=false && npm run vercel-build",
+  "buildCommand": "node server/migrate.js && vite build",
   "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/health", "destination": "/api/health.js" },
