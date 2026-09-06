@@ -8,6 +8,7 @@
     { "source": "/api/admin/categories", "destination": "/api/admin-categories.js" },
     { "source": "/api/admin/login", "destination": "/api/admin-login.js" },
     { "source": "/api/admin-archive", "destination": "/api/admin-archive.js" },
+    { "source": "/api/orders", "destination": "/api/orders.js" },
     { "source": "/api/:path*", "destination": "/api/app.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
