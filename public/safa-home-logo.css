@@ -1,5 +1,5 @@
 /* SAFA homepage logo — scoped to the home hero only. */
-/* v6: centered standalone hero logo; black image backgrounds are visually removed. */
+/* v7: centered standalone hero logo; black image backgrounds are visually removed. */
 .hero{
   min-height:760px;
   padding:140px 10vw 90px;
@@ -45,9 +45,15 @@
 .hero .lead{color:#6f6a60;text-align:center}
 .hero .goldbtn{background:#b8860b;border-color:#b8860b;box-shadow:none}
 .hero .goldbtn:hover{background:#211f1b;color:#fff}
-.brand b,
+.footer-brand .brand,
 .footer-brand b,
 footer .brand b{
+  background:linear-gradient(100deg,#B69665 0%,#D2B274 50%,#B69665 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent!important;
+}
+.brand b{
   background:linear-gradient(100deg,#B69665 0%,#D2B274 50%,#B69665 100%);
   -webkit-background-clip:text;
   background-clip:text;
