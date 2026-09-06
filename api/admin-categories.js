@@ -1,8 +1,7 @@
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 
-// Keep admin category auth compatible with the passwordless admin token issued by api/index.js.
-if (!process.env.SESSION_SECRET) process.env.SESSION_SECRET = 'safa-passwordless-admin-session';
+if (!process.env.SESSION_SECRET) throw new Error('SESSION_SECRET is required');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false });
 
