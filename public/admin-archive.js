@@ -31,6 +31,17 @@
       const data=await r.json().catch(()=>[]);
       return jsonResponse(Array.isArray(data)?data.filter(x=>x.active!==false):data);
     }
+    if(method==='GET'&&url.includes('/api/admin/stats')){
+      const [sr,or]=await Promise.all([nativeFetch(input,init),nativeFetch('/api/admin/orders',{credentials:'same-origin'})]);
+      if(!sr.ok)return sr;
+      const stats=await sr.json().catch(()=>({}));
+      const orders=await or.json().catch(()=>[]);
+      if(Array.isArray(orders)){
+        stats.orders=orders.filter(x=>!x.archived_at).length;
+        stats.revenue=orders.filter(x=>!x.archived_at&&x.status!=='cancelled').reduce((sum,x)=>sum+Number(x.total||0),0).toFixed(2);
+      }
+      return jsonResponse(stats);
+    }
     return nativeFetch(input,init);
   };
 
@@ -87,7 +98,7 @@
 
   function ensurePanel(){
     const root=document.querySelector('.admin-clean');
-    if(!root)return null;
+    if(!root||!root.querySelector('.adminnav'))return null;
     let panel=root.querySelector('.archive-panel');
     if(panel)return panel;
     panel=document.createElement('section');
@@ -109,7 +120,7 @@
     return panel;
   }
 
-  const observer=new MutationObserver(()=>{ensureArchiveUI();if(document.querySelector('.admin-clean'))ensurePanel()});
+  const observer=new MutationObserver(()=>{ensureArchiveUI();if(document.querySelector('.adminnav'))ensurePanel()});
   observer.observe(document.documentElement,{childList:true,subtree:true});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{ensureArchiveUI();ensurePanel()},{once:true});
   else{ensureArchiveUI();ensurePanel()}
