@@ -22,6 +22,7 @@
       .header-search span{font-size:22px;line-height:1;display:block}
       .hero-copy{text-align:center!important;margin-left:auto!important;margin-right:auto!important}
       .hero-copy::before{display:none!important;content:none!important}
+      .footer .brand,.footer-brand .brand{background:linear-gradient(90deg,#B69665,#D2B274);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#B69665}
     </style>
   </head>
   <body>
@@ -33,7 +34,19 @@
     <script src="/admin-archive.js?v=1"></script>
     <script src="/site-fixes.js?v=6"></script>
     <script src="/site-enhancements.js?v=3"></script>
-    <script src="/order-details-enhancement.js?v=3"></script>
-    <script src="/product-page.js?v=2"></script>
+    <script src="/order-details-enhancement.js?v=4"></script>
+    <script src="/product-page.js?v=3"></script>
+    <script>
+      document.addEventListener('click',function(e){
+        var back=e.target.closest('.pp-back');
+        if(!back)return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        if(location.hash.indexOf('#product=')===0){
+          history.replaceState({},'',location.pathname+location.search);
+          window.dispatchEvent(new PopStateEvent('popstate'));
+        }else{window.location.assign('/')}
+      },true);
+    </script>
   </body>
 </html>
