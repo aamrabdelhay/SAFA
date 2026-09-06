@@ -22,6 +22,7 @@
       const r=await nativeFetch(input,init);
       if(!r.ok)return r;
       const data=await r.json().catch(()=>[]);
+      window.__safaOrders=Array.isArray(data)?data:[];
       return jsonResponse(Array.isArray(data)?data.filter(x=>!x.archived_at):data);
     }
     if(method==='GET'&&url.includes('/api/admin/categories')){
@@ -44,7 +45,7 @@
       if(!r.ok)throw Error(data.error||'Archive unavailable');
       const render=(items,type,label)=>`
         <section class="archive-section"><h3>${label}</h3>${items.length?items.map(x=>{
-          const title=type==='order'?`#${esc(x.order_number)}`:esc(type==='product'?x.name_en:x.name_en);
+          const title=type==='order'?`#${esc(x.order_number)}`:esc(x.name_en);
           const meta=type==='order'?`${esc(x.customer_name)} · ${esc(x.status)}`:(type==='product'?`${esc(x.category_en||'Uncategorized')} · ${esc(x.stock)} in stock`:`${esc(x.slug||'')}`);
           return `<div class="archive-item"><div class="archive-meta"><strong>${title}</strong><small>${meta}</small></div><button class="archive-restore" data-restore-type="${type}" data-restore-id="${esc(x.id)}">RESTORE</button></div>`;
         }).join(''):'<p class="archive-empty">Archive is empty.</p>'}</section>`;
@@ -66,15 +67,20 @@
       nav.appendChild(btn);
       btn.addEventListener('click',()=>{root.classList.add('archive-open');ensurePanel();loadArchive();});
     }
-    nav.querySelectorAll('button:not([data-safa-archive-nav])').forEach(x=>x.addEventListener('click',()=>root.classList.remove('archive-open'),{once:true}));
+    nav.querySelectorAll('button:not([data-safa-archive-nav])').forEach(x=>{
+      if(x.dataset.safaArchiveBound==='1')return;
+      x.dataset.safaArchiveBound='1';
+      x.addEventListener('click',()=>root.classList.remove('archive-open'));
+    });
     root.querySelectorAll('.delete-btn').forEach(x=>{if(!x.dataset.safaArchiveLabel){x.dataset.safaArchiveLabel='1';x.textContent='ARCHIVE';x.title='Move to archive';}});
     document.querySelectorAll('.order-card').forEach(card=>{
       if(card.querySelector('.order-archive-button'))return;
-      const id=(card.querySelector('[data-order-id]')?.dataset.orderId)||card.querySelector('select')?.closest('[data-id]')?.dataset.id;
-      if(!id)return;
+      const orderNumber=(card.querySelector('.order-card-head b')?.textContent||'').replace(/^#/,'').trim();
+      const order=Array.isArray(window.__safaOrders)?window.__safaOrders.find(x=>String(x.order_number)===orderNumber):null;
+      if(!order?.id)return;
       const button=document.createElement('button');
       button.type='button';button.className='order-archive-button';button.textContent='ARCHIVE';
-      button.addEventListener('click',async()=>{if(!confirm('Move this order to the archive?'))return;try{await archive('order',id);card.remove()}catch(e){alert(e.message)}});
+      button.addEventListener('click',async()=>{if(!confirm('Move this order to the archive?'))return;try{await archive('order',order.id);card.remove();window.__safaOrders=(window.__safaOrders||[]).filter(x=>x.id!==order.id)}catch(e){alert(e.message)}});
       card.querySelector('.order-card-head')?.appendChild(button);
     });
   }
