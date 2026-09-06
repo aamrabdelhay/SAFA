@@ -6,6 +6,7 @@
     { "source": "/api/blob", "destination": "/api/blob.js" },
     { "source": "/api/blob/:path*", "destination": "/api/blob.js?path=:path*" },
     { "source": "/api/admin/categories", "destination": "/api/admin-categories.js" },
+    { "source": "/api/admin/login", "destination": "/api/admin-login.js" },
     { "source": "/api/:path*", "destination": "/api/app.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
