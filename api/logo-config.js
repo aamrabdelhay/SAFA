@@ -1,0 +1,69 @@
+const { Pool } = require('pg');
+const jwt = require('jsonwebtoken');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  max: 2,
+  idleTimeoutMillis: 10000,
+  connectionTimeoutMillis: 10000,
+});
+
+function readCookie(req, name) {
+  const raw = req.headers.cookie || '';
+  for (const part of raw.split(';')) {
+    const [k, ...rest] = part.trim().split('=');
+    if (k === name) return decodeURIComponent(rest.join('='));
+  }
+  return '';
+}
+
+function auth(req) {
+  const bearer = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  const token = bearer || readCookie(req, 'safa_admin_session');
+  if (!token) throw new Error('Authentication required');
+  return jwt.verify(token, process.env.SESSION_SECRET);
+}
+
+const defaults = { logo: '', x: 0, y: 0, size: 420, animation: 'fade', duration: 900 };
+
+module.exports = async (req, res) => {
+  try {
+    if (!process.env.DATABASE_URL || !process.env.SESSION_SECRET) {
+      return res.status(500).json({ error: 'Required server configuration is missing' });
+    }
+
+    if (req.method === 'GET') {
+      const row = (await pool.query("select value from site_settings where key='logo_config' limit 1")).rows[0];
+      let config = defaults;
+      try {
+        if (row?.value) config = { ...defaults, ...JSON.parse(row.value) };
+      } catch {}
+      return res.json(config);
+    }
+
+    if (req.method === 'PUT') {
+      auth(req);
+      const b = req.body || {};
+      const config = {
+        logo: typeof b.logo === 'string' ? b.logo : '',
+        x: Number.isFinite(Number(b.x)) ? Math.max(-45, Math.min(45, Number(b.x))) : 0,
+        y: Number.isFinite(Number(b.y)) ? Math.max(-45, Math.min(45, Number(b.y))) : 0,
+        size: Number.isFinite(Number(b.size)) ? Math.max(120, Math.min(700, Number(b.size))) : 420,
+        animation: ['none', 'fade', 'slide-up', 'zoom', 'float'].includes(b.animation) ? b.animation : 'fade',
+        duration: Number.isFinite(Number(b.duration)) ? Math.max(200, Math.min(2500, Number(b.duration))) : 900,
+      };
+      await pool.query(
+        "insert into site_settings(key,value) values('logo_config',$1) on conflict(key) do update set value=excluded.value,updated_at=now()",
+        [JSON.stringify(config)]
+      );
+      return res.json(config);
+    }
+
+    res.setHeader('Allow', 'GET, PUT');
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (error) {
+    const status = error?.name === 'JsonWebTokenError' || error?.name === 'TokenExpiredError' || error?.message === 'Authentication required' ? 401 : 500;
+    return res.status(status).json({ error: status === 401 ? 'Authentication required' : 'Logo configuration unavailable' });
+  }
+};
