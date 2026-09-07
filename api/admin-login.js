@@ -56,7 +56,8 @@ module.exports = async (req, res) => {
 
     const token = jwt.sign({ id: admin.id, email: admin.email }, process.env.SESSION_SECRET, { expiresIn: '8h' });
     setSessionCookie(res, token);
-    return res.json({ ok: true });
+    // The frontend also keeps the token in localStorage for its existing Bearer-authenticated API wrapper.
+    return res.json({ ok: true, token });
   } catch (error) {
     console.error('SAFA admin login error:', error?.message || error);
     return res.status(500).json({ error: 'Login failed' });
