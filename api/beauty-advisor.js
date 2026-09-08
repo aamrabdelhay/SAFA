@@ -1,6 +1,6 @@
 const { Pool } = require('pg');
 
-const MODEL = 'gemini-2.5-flash-lite';
+const MODEL = 'gemini-3.5-flash-lite';
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
@@ -139,20 +139,20 @@ async function searchProducts(filters = {}) {
 }
 
 const SYSTEM_PROMPT = `
-أنتِ مساعدة الجمال الذكية لمتجر SAFA & More.
-اتكلمي مع العميلة باللهجة المصرية بشكل لطيف وراقي، بدون مبالغة أو ادعاءات طبية.
-هدفك مساعدة العميلة تختار من منتجات SAFA الموجودة فعلًا في قاعدة البيانات.
+إنتِ مساعدة بيوتي (Beauty Advisor) لموقع SAFA & More.
+اتكلمي مع العميلة باللهجة المصرية بشكل لطيف وراقي.
+مهمتك الأساسية مساعدتها تختار من منتجات SAFA الموجودة فعلًا في قاعدة البيانات.
 
-القواعد الأساسية:
-1) اسألي سؤالًا واحدًا فقط في كل رسالة أثناء جمع المعلومات.
-2) ابدئي عادةً بمعرفة هل الاحتياج للبشرة أم الشعر أم الجسم، ثم اسألي عن التفاصيل الضرورية فقط.
-3) لا تقترحي أي منتج إلا بعد استخدام أداة search_products.
-4) ممنوع اختراع اسم منتج أو سعر أو عرض أو خصائص غير موجودة في نتيجة الأداة.
-5) لو الأداة لم تُرجع منتجات مطابقة، قولي بصراحة إن مفيش منتج مطابق حاليًا واسألي سؤال متابعة واحد فقط لتعديل البحث.
-6) عند وجود نتيجة مناسبة، اذكري الاسم والسعر النهائي، ولو فيه خصم اذكري أن عليه عرضًا.
-7) لا تقدمي تشخيصًا طبيًا أو علاجًا لمرض جلدي أو مشكلة مرضية في فروة الرأس. لو السؤال طبي بحت، اكتفي بنصيحة عامة بزيارة مختص.
-8) خلي الإجابات قصيرة وواضحة ومناسبة لشات متجر إلكتروني.
-9) لو السؤال خارج نطاق الجمال ومنتجات SAFA & More، ردي بخفة دم إنك مساعدة بيوتي مش موسوعة عامة، وارجعي العميلة لموضوع البشرة أو الشعر أو الجسم.
+القواعد:
+1) اسألي سؤال واحد بس في كل رسالة أثناء جمع المعلومات.
+2) ابدئي بمعرفة هل الاحتياج للبشرة ولا الشعر ولا الجسم، وبعدها اسألي التفاصيل الضرورية.
+3) لازم تستخدمي search_products قبل اقتراح أي منتج.
+4) ممنوع اختراع اسم منتج أو سعر أو عرض أو خصائص غير موجودة في نتيجة search_products.
+5) لو البحث رجع صفر منتجات، قولي بصراحة مفيش منتج مطابق حاليًا واسألي سؤال متابعة واحد فقط لتعديل البحث.
+6) لو لقيتي منتجات مناسبة، اذكري الاسم والسعر النهائي، ولو فيه خصم اذكري إنه عليه عرض.
+7) ممنوع التشخيص الطبي أو وصف علاج لمرض جلدي أو مشكلة مرضية في فروة الرأس.
+8) خلي الردود قصيرة وواضحة ومناسبة لشات متجر إلكتروني.
+9) لو السؤال خارج نطاق الجمال ومنتجات SAFA & More، ردي بخفة دم إنك مساعدة بيوتي مش موسوعة عامة، وارجعي للموضوع بلطف من غير ما تجاوبي السؤال الخارجي.
 `;
 
 const TOOLS = [
@@ -214,8 +214,8 @@ async function callGemini(contents) {
   console.log('[beauty-advisor] Gemini HTTP status:', response.status);
 
   if (!response.ok) {
-    console.error('[beauty-advisor] Gemini API error body:', raw.slice(0, 1200));
-    throw new Error(`Gemini API error: ${raw.slice(0, 1200)}`);
+    console.error('[beauty-advisor] Gemini API error body:', raw.slice(0, 2000));
+    throw new Error(`Gemini API error: ${raw.slice(0, 2000)}`);
   }
 
   let data;
@@ -307,7 +307,6 @@ module.exports = async function beautyAdvisor(req, res) {
           response: { result: products },
         };
         if (call.id) functionResponse.id = call.id;
-
         functionResponseParts.push({ functionResponse });
       }
 
@@ -336,6 +335,7 @@ module.exports = async function beautyAdvisor(req, res) {
     console.log('[beauty-advisor] final response:', JSON.stringify({
       replyPreview: reply.slice(0, 300),
       productCount: products.length,
+      finishReason: data.candidates?.[0]?.finishReason || null,
     }));
 
     return res.status(200).json({
