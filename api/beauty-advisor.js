@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const { Pool } = require('pg');
 
 const MODEL = 'gemini-3.5-flash-lite';
@@ -32,6 +33,109 @@ function allowed(req) {
 
 const normalize = (value) => String(value || '').trim().toLowerCase();
 
+function normalizeMessages(messages) {
+  return messages.map((message) => ({
+    role: message.role === 'assistant' ? 'assistant' : 'user',
+    content: typeof message.content === 'string' ? message.content.trim().replace(/\s+/g, ' ').slice(0, 4000) : '',
+  }));
+}
+
+function cacheKeyFor(messages) {
+  return crypto.createHash('sha256').update(JSON.stringify(normalizeMessages(messages))).digest('hex');
+}
+
+function productFingerprint(products) {
+  return crypto.createHash('sha256').update(JSON.stringify(products.map((p) => ({
+    id: p.id,
+    name: p.name,
+    name_ar: p.name_ar,
+    category: p.category,
+    price: p.price,
+    final_price: p.final_price,
+    discount_active: p.discount_active,
+    discount_type: p.discount_type,
+    discount_value: p.discount_value,
+    description: p.description,
+    image: p.image,
+  })))).digest('hex');
+}
+
+async function readCache(cacheKey) {
+  const result = await pool.query(
+    'select cache_key, answer, products, tool_filters, data_hashes, is_static from beauty_advisor_cache where cache_key=$1 limit 1',
+    [cacheKey]
+  );
+  return result.rows[0] || null;
+}
+
+async function writeCache({ cacheKey, answer, products, toolFilters, dataHashes, isStatic }) {
+  await pool.query(
+    `insert into beauty_advisor_cache(cache_key, answer, products, tool_filters, data_hashes, is_static, created_at, updated_at)
+     values($1,$2,$3::jsonb,$4::jsonb,$5::jsonb,$6,now(),now())
+     on conflict(cache_key) do update set
+       answer=excluded.answer,
+       products=excluded.products,
+       tool_filters=excluded.tool_filters,
+       data_hashes=excluded.data_hashes,
+       is_static=excluded.is_static,
+       updated_at=now()`,
+    [
+      cacheKey,
+      answer,
+      JSON.stringify(products || []),
+      JSON.stringify(toolFilters || []),
+      JSON.stringify(dataHashes || []),
+      Boolean(isStatic),
+    ]
+  );
+}
+
+async function currentCacheStillValid(cache) {
+  if (!cache || cache.is_static) return true;
+  const toolFilters = Array.isArray(cache.tool_filters) ? cache.tool_filters : [];
+  const dataHashes = Array.isArray(cache.data_hashes) ? cache.data_hashes : [];
+  if (toolFilters.length !== dataHashes.length) return false;
+
+  for (let index = 0; index < toolFilters.length; index += 1) {
+    const products = await searchProducts(toolFilters[index]);
+    if (productFingerprint(products) !== dataHashes[index]) return false;
+  }
+  return true;
+}
+
+function staticReplyFor(message) {
+  const text = normalize(message);
+  if (!text) return null;
+
+  if (/^(hi|hello|hey|اهلا|أهلا|السلام عليكم|سلام|هاي|هلا)[! .،؟?]*$/u.test(text)) {
+    return 'أهلًا! أنا مساعدة SAFA & More. محتاجة حاجة للبشرة، الشعر، ولا الجسم؟';
+  }
+
+  if (/^(عايزة حاجة|عاوزه حاجه|محتاجة حاجة|محتاجه حاجه|عايز حاجة|عاوز حاجه|ممكن حاجة|ممكن حاجه)[! .،؟?]*$/u.test(text)) {
+    return 'أكيد. محتاجة المنتج للبشرة، الشعر، ولا الجسم؟';
+  }
+
+  if (/(برمجة|كود|javascript|python|react|next\.js|html|css|رياضة|كرة|ماتش|سياسة|رئيس|اقتصاد|نكتة|نكت|weather|programming|football|politics|sports|joke)/iu.test(text)) {
+    return 'أنا مساعدة بيوتي مش موسوعة عامة 😄 اسأليني عن البشرة أو الشعر أو الجسم أو منتجات وعروض SAFA & More.';
+  }
+
+  if (/^(مين انتي|من انتي|مين انت|من انت|ايه اللي بتعمليه|ماذا تفعلين|what can you do|who are you)[! .،؟?]*$/iu.test(text)) {
+    return 'أنا Beauty Advisor الخاصة بـSAFA & More، وبساعدك تختاري منتجات مناسبة للبشرة أو الشعر أو الجسم من المنتجات الموجودة فعلًا في الموقع.';
+  }
+
+  return null;
+}
+
+function categoryAliases(value) {
+  const map = {
+    skin: ['skin', 'skincare', 'face', 'beauty', 'بشرة', 'العناية بالبشرة'],
+    hair: ['hair', 'hair care', 'شعر', 'العناية بالشعر'],
+    body: ['body', 'body care', 'جسم', 'العناية بالجسم'],
+  };
+  const key = normalize(value);
+  return map[key] || [String(value || '')];
+}
+
 function aliases(value) {
   const map = {
     oily: ['oily', 'دهني', 'دهنية'],
@@ -43,16 +147,6 @@ function aliases(value) {
     straight: ['straight', 'مفرود', 'مستقيم'],
     blonde: ['blonde', 'أشقر', 'شقراء'],
     highlighted: ['highlighted', 'هايلايت', 'ملون', 'ملونة', 'مصبوغ', 'مصبوغة'],
-  };
-  const key = normalize(value);
-  return map[key] || [String(value || '')];
-}
-
-function categoryAliases(value) {
-  const map = {
-    skin: ['skin', 'skincare', 'face', 'beauty', 'بشرة', 'العناية بالبشرة'],
-    hair: ['hair', 'hair care', 'شعر', 'العناية بالشعر'],
-    body: ['body', 'body care', 'جسم', 'العناية بالجسم'],
   };
   const key = normalize(value);
   return map[key] || [String(value || '')];
@@ -153,6 +247,7 @@ const SYSTEM_PROMPT = `
 7) ممنوع التشخيص الطبي أو وصف علاج لمرض جلدي أو مشكلة مرضية في فروة الرأس.
 8) خلي الردود قصيرة وواضحة ومناسبة لشات متجر إلكتروني.
 9) لو السؤال خارج نطاق الجمال ومنتجات SAFA & More، ردي بخفة دم إنك مساعدة بيوتي مش موسوعة عامة، وارجعي للموضوع بلطف من غير ما تجاوبي السؤال الخارجي.
+10) لو طلب العميل منتجًا، استخدمي الأداة أولًا ثم ابني الرد من نتائجها فقط.
 `;
 
 const TOOLS = [
@@ -171,7 +266,6 @@ const TOOLS = [
             hairColor: { type: 'string' },
             maxPrice: { type: 'number' },
           },
-          required: [],
         },
       },
     ],
@@ -181,9 +275,7 @@ const TOOLS = [
 async function callGemini(contents) {
   const apiKeyPresent = Boolean(process.env.GEMINI_API_KEY?.trim());
   console.log('[beauty-advisor] GEMINI_API_KEY present:', apiKeyPresent);
-  if (!apiKeyPresent) {
-    throw new Error('المفتاح مش موجود: GEMINI_API_KEY');
-  }
+  if (!apiKeyPresent) throw new Error('المفتاح مش موجود: GEMINI_API_KEY');
 
   const payload = {
     contents,
@@ -198,21 +290,17 @@ async function callGemini(contents) {
     toolCount: TOOLS.reduce((n, t) => n + t.functionDeclarations.length, 0),
   }));
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-goog-api-key': process.env.GEMINI_API_KEY,
-      },
-      body: JSON.stringify(payload),
-    }
-  );
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-goog-api-key': process.env.GEMINI_API_KEY,
+    },
+    body: JSON.stringify(payload),
+  });
 
   const raw = await response.text();
   console.log('[beauty-advisor] Gemini HTTP status:', response.status);
-
   if (!response.ok) {
     console.error('[beauty-advisor] Gemini API error body:', raw.slice(0, 2000));
     throw new Error(`Gemini API error: ${raw.slice(0, 2000)}`);
@@ -245,11 +333,7 @@ module.exports = async function beautyAdvisor(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
-  console.log('[beauty-advisor] request received:', JSON.stringify({
-    method: req.method,
-    hasBody: Boolean(req.body),
-  }));
-
+  console.log('[beauty-advisor] request received:', JSON.stringify({ method: req.method, hasBody: Boolean(req.body) }));
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!allowed(req)) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
 
@@ -261,25 +345,44 @@ module.exports = async function beautyAdvisor(req, res) {
   try {
     const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
     if (!messages.length || messages.length > 30) {
-      console.error('[beauty-advisor] invalid conversation:', JSON.stringify({
-        isArray: Array.isArray(req.body?.messages),
-        count: messages.length,
-      }));
-      return res.status(400).json({ error: 'Invalid conversation' });
+      console.error('[beauty-advisor] invalid conversation:', JSON.stringify({ isArray: Array.isArray(req.body?.messages), count: messages.length }));
+      return res.status(400).json({ error: 'المحادثة غير صالحة: ابعتي رسالة واحدة على الأقل وبحد أقصى 30 رسالة.' });
     }
 
-    let contents = messages.map((m) => ({
+    const normalizedMessages = normalizeMessages(messages);
+    const cacheKey = cacheKeyFor(normalizedMessages);
+    console.log('[beauty-advisor] cache key:', cacheKey.slice(0, 12));
+
+    const staticReply = normalizedMessages.length === 1 ? staticReplyFor(normalizedMessages[0].content) : null;
+    if (staticReply) {
+      const cachedStatic = await readCache(cacheKey);
+      if (cachedStatic?.answer === staticReply) {
+        console.log('[beauty-advisor] cache hit: static');
+        return res.status(200).json({ reply: cachedStatic.answer, products: [] , cache: 'hit-static' });
+      }
+      await writeCache({ cacheKey, answer: staticReply, products: [], toolFilters: [], dataHashes: [], isStatic: true });
+      console.log('[beauty-advisor] static response, Gemini skipped');
+      return res.status(200).json({ reply: staticReply, products: [], cache: 'static' });
+    }
+
+    const cached = await readCache(cacheKey);
+    if (cached && await currentCacheStillValid(cached)) {
+      const cachedProducts = Array.isArray(cached.products) ? cached.products : [];
+      console.log('[beauty-advisor] cache hit: dynamic data unchanged');
+      return res.status(200).json({ reply: cached.answer, products: cachedProducts, cache: 'hit-dynamic' });
+    }
+    if (cached) console.log('[beauty-advisor] cache stale: site data changed, Gemini required');
+
+    let contents = normalizedMessages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: typeof m.content === 'string' ? m.content.slice(0, 4000) : '' }],
+      parts: [{ text: m.content }],
     }));
 
-    console.log('[beauty-advisor] normalized conversation:', JSON.stringify({
-      count: contents.length,
-      roles: contents.map((m) => m.role),
-    }));
-
+    console.log('[beauty-advisor] normalized conversation:', JSON.stringify({ count: contents.length, roles: contents.map((m) => m.role) }));
     let data = await callGemini(contents);
     const recommendedProducts = new Map();
+    const toolFilters = [];
+    const dataHashes = [];
 
     for (let loop = 0; loop < 4; loop += 1) {
       const candidate = data.candidates?.[0];
@@ -290,17 +393,14 @@ module.exports = async function beautyAdvisor(req, res) {
       const functionResponseParts = [];
 
       for (const call of functionCalls) {
-        const products = call.name === 'search_products'
-          ? await searchProducts(call.args || {})
-          : [];
+        const filters = call.args || {};
+        const products = call.name === 'search_products' ? await searchProducts(filters) : [];
 
+        toolFilters.push(filters);
+        dataHashes.push(productFingerprint(products));
         for (const product of products) recommendedProducts.set(String(product.id), product);
 
-        console.log('[beauty-advisor] tool result:', JSON.stringify({
-          name: call.name,
-          id: call.id || null,
-          resultCount: products.length,
-        }));
+        console.log('[beauty-advisor] tool result:', JSON.stringify({ name: call.name, id: call.id || null, resultCount: products.length, fingerprint: productFingerprint(products).slice(0, 12) }));
 
         const functionResponse = {
           name: call.name,
@@ -310,42 +410,39 @@ module.exports = async function beautyAdvisor(req, res) {
         functionResponseParts.push({ functionResponse });
       }
 
-      contents = [
-        ...contents,
-        candidate.content,
-        { role: 'user', parts: functionResponseParts },
-      ];
-
-      console.log('[beauty-advisor] sending functionResponse back to Gemini:', JSON.stringify({
-        resultBlocks: functionResponseParts.length,
-      }));
-
+      contents = [...contents, candidate.content, { role: 'user', parts: functionResponseParts }];
       data = await callGemini(contents);
     }
 
     const parts = data.candidates?.[0]?.content?.parts || [];
-    const reply = parts
-      .filter((part) => typeof part.text === 'string')
-      .map((part) => part.text)
-      .join('\n')
-      .trim();
-
+    const reply = parts.filter((part) => typeof part.text === 'string').map((part) => part.text).join('\n').trim();
     const products = Array.from(recommendedProducts.values()).slice(0, 5);
+    const isStatic = toolFilters.length === 0;
 
     console.log('[beauty-advisor] final response:', JSON.stringify({
       replyPreview: reply.slice(0, 300),
       productCount: products.length,
       finishReason: data.candidates?.[0]?.finishReason || null,
+      isStatic,
     }));
 
-    return res.status(200).json({
-      reply: reply || 'معلش، مش عرفت أوصلك لأفضل اختيار دلوقتي. قوليلي احتياجك وأنا أساعدك خطوة خطوة.',
+    const safeReply = reply || 'معلش، مش عرفت أوصلك لأفضل اختيار دلوقتي. قوليلي احتياجك وأنا أساعدك خطوة خطوة.';
+    await writeCache({
+      cacheKey,
+      answer: safeReply,
       products,
+      toolFilters,
+      dataHashes,
+      isStatic,
     });
+
+    return res.status(200).json({ reply: safeReply, products, cache: 'miss-gemini' });
   } catch (error) {
     console.error('[beauty-advisor] request failed:', error);
+    const message = error?.message || 'حصل خطأ أثناء تشغيل مساعد الجمال.';
     return res.status(500).json({
-      error: error?.message || 'حصل خطأ أثناء تشغيل مساعد الجمال.',
+      error: message,
+      code: message.startsWith('Gemini API error:') ? 'GEMINI_API_ERROR' : 'BEAUTY_ADVISOR_ERROR',
     });
   }
 };
