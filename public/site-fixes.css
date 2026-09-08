@@ -1,3 +1,4 @@
+#product-page-root:not(.product-page-root){display:none!important}
 body.safa-admin-route .header,body.safa-admin-route footer{display:none!important}
 body.safa-admin-route .admin-clean{min-height:100dvh;padding-top:max(28px,env(safe-area-inset-top));padding-bottom:max(40px,env(safe-area-inset-bottom));overflow-x:hidden}
 .header-search span{cursor:pointer;user-select:none}.header-search span:focus{outline:1px solid #b8860b;outline-offset:4px}
