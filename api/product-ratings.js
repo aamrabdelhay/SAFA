@@ -19,11 +19,12 @@ module.exports = async (req, res) => {
       WITH purchases AS (
         SELECT
           oi.product_id,
-          COUNT(DISTINCT oi.order_id)::int AS purchase_count
+          COUNT(DISTINCT regexp_replace(o.phone1, '\\D', '', 'g'))::int AS purchase_count
         FROM order_items oi
         INNER JOIN orders o ON o.id = oi.order_id
         WHERE oi.product_id IS NOT NULL
           AND o.status <> 'cancelled'
+          AND regexp_replace(o.phone1, '\\D', '', 'g') <> ''
         GROUP BY oi.product_id
       )
       SELECT
