@@ -1,3 +1,4 @@
+require('../server/pg-json-safety');
 const blob = require('@vercel/blob');
 
 if (!process.env.SESSION_SECRET) throw new Error('SESSION_SECRET is required');

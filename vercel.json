@@ -13,7 +13,7 @@
     { "source": "/api/beauty-advisor", "destination": "/api/beauty-advisor.js" },
     { "source": "/api/analytics-visit", "destination": "/api/analytics-visit.js" },
     { "source": "/api/admin-visitor-stats", "destination": "/api/admin-visitor-stats.js" },
-    { "source": "/api/:path*", "destination": "/api/app.js" },
+    { "source": "/api/:path*", "destination": "/api/index.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "trailingSlash": false
