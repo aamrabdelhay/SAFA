@@ -152,6 +152,7 @@ const SYSTEM_PROMPT = `
 6) عند وجود نتيجة مناسبة، اذكري الاسم والسعر النهائي، ولو فيه خصم اذكري أن عليه عرضًا.
 7) لا تقدمي تشخيصًا طبيًا أو علاجًا لمرض جلدي أو مشكلة مرضية في فروة الرأس. لو السؤال طبي بحت، اكتفي بنصيحة عامة بزيارة مختص.
 8) خلي الإجابات قصيرة وواضحة ومناسبة لشات متجر إلكتروني.
+9) لو السؤال خارج نطاق الجمال ومنتجات SAFA & More، ردي بخفة دم إنك مساعدة بيوتي مش موسوعة عامة، وارجعي العميلة لموضوع البشرة أو الشعر أو الجسم.
 `;
 
 const TOOLS = [
@@ -170,7 +171,7 @@ const TOOLS = [
             hairColor: { type: 'string' },
             maxPrice: { type: 'number' },
           },
-          additionalProperties: false,
+          required: [],
         },
       },
     ],
@@ -217,11 +218,19 @@ async function callGemini(contents) {
     throw new Error(`Gemini API error: ${raw.slice(0, 1200)}`);
   }
 
-  const data = JSON.parse(raw);
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch {
+    throw new Error('Gemini returned an invalid JSON response');
+  }
+
   const candidate = data.candidates?.[0];
   console.log('[beauty-advisor] Gemini response:', JSON.stringify({
     finishReason: candidate?.finishReason || null,
-    partTypes: Array.isArray(candidate?.content?.parts) ? candidate.content.parts.map((p) => p.functionCall ? 'functionCall' : p.text ? 'text' : 'other') : [],
+    partTypes: Array.isArray(candidate?.content?.parts)
+      ? candidate.content.parts.map((p) => p.functionCall ? 'functionCall' : p.text ? 'text' : 'other')
+      : [],
   }));
   return data;
 }
@@ -335,6 +344,8 @@ module.exports = async function beautyAdvisor(req, res) {
     });
   } catch (error) {
     console.error('[beauty-advisor] request failed:', error);
-    return res.status(500).json({ error: error.message || 'حصل خطأ أثناء تشغيل مساعد الجمال.' });
+    return res.status(500).json({
+      error: error?.message || 'حصل خطأ أثناء تشغيل مساعد الجمال.',
+    });
   }
 };
