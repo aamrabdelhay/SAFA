@@ -1,0 +1,94 @@
+name: one-off-ai-offer-fix
+
+on:
+  push:
+    paths:
+      - .github/workflows/one-off-ai-offer-fix.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch AI offer intent
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('api/beauty-advisor.js')
+          text = path.read_text(encoding='utf-8')
+
+          if 'function offerIntentFor' not in text:
+              marker = "function categoryAliases(value) {"
+              helper = r'''function offerIntentFor(message) {
+            const text = normalize(message).replace(/ـ/g, '');
+            const isOffer = /(عروض|عرض|خصومات|خصم|تخفيضات|تخفيض|تنزيلات|تنزيل|سِيل|سيل|اوفَر|اوفر|أوفر|أوفرات|حاجات عليها خصم|حاجه عليها خصم|حاجة عليها خصم|حاجات عليها عروض|حاجه عليها عروض|حاجة عليها عروض|sale|sales|discounts?|offers?|deals?|clearance)/iu.test(text);
+            if (!isOffer) return null;
+
+            let category = null;
+            if (/(بشرة|وش|وجه|سكين كير|skincare|skin)/iu.test(text)) category = 'skin';
+            else if (/(شعر|هير كير|hair care|hair)/iu.test(text)) category = 'hair';
+            else if (/(جسم|بودي|body care|body)/iu.test(text)) category = 'body';
+
+            return { onOffer: true, category };
+          }
+
+          function formatOfferReply(products) {
+            if (!products.length) return 'حاليًا مفيش منتجات عليها خصم أو عرض ظاهر في المتجر. لو تحبي أقدر أدورلك على حاجة في البشرة أو الشعر أو الجسم.';
+            const lines = products.slice(0, 5).map((p) => {
+              const original = Number(p.price || 0).toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              const final = Number(p.final_price || 0).toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              const saving = Math.max(0, Number(p.price || 0) - Number(p.final_price || 0));
+              const save = saving.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+              return `• ${p.name}${Number(p.final_price || 0) < Number(p.price || 0) ? ` — ${final} EGP بدل ${original} EGP (توفير ${save} EGP)` : ` — ${final} EGP`}`;
+            });
+            return `أيوه ❤️ عندنا عروض وخصومات حاليًا. دي أبرز المنتجات عليها خصم:\n${lines.join('\\n')}\n\nقوليلي «بشرة» أو «شعر» أو «جسم» لو عايزة أشوفلك العروض في قسم معين.`;
+          }
+
+          '''
+              if marker not in text:
+                  raise SystemExit('categoryAliases marker not found')
+              text = text.replace(marker, helper + marker, 1)
+
+          old = "  const category = normalize(filters.category);\n\n  if (category) {"
+          new = "  const category = normalize(filters.category);\n\n  if (filters.onOffer === true) {\n    where.push(\"(p.discount_type <> 'none' and coalesce(p.discount_value, 0) > 0)\");\n  }\n\n  if (category) {"
+          if old not in text:
+              raise SystemExit('searchProducts insertion point not found')
+          text = text.replace(old, new, 1)
+
+          old = "    query: { type: 'string', description: 'كلمات إضافية للبحث في اسم أو وصف أو tags المنتج' },\n    category: { type: 'string', enum: ['skin', 'hair', 'body'] },"
+          new = "    query: { type: 'string', description: 'كلمات إضافية للبحث في اسم أو وصف أو tags المنتج' },\n    onOffer: { type: 'boolean', description: 'true عندما يطلب العميل عروضًا أو خصومات أو منتجات عليها تخفيض حاليًا' },\n    category: { type: 'string', enum: ['skin', 'hair', 'body'] },"
+          if old not in text:
+              raise SystemExit('tool schema insertion point not found')
+          text = text.replace(old, new, 1)
+
+          old = "9) لو السؤال خارج نطاق الجمال ومنتجات SAFA & More، ردي بخفة دم إنك مساعدة بيوتي مش موسوعة عامة، وارجعي للموضوع بلطف من غير ما تجاوبي السؤال الخارجي.\n10) لو طلب العميل منتجًا، استخدمي الأداة أولًا ثم ابني الرد من نتائجها فقط."
+          new = "9) لو السؤال خارج نطاق الجمال ومنتجات SAFA & More، ردي بخفة دم إنك مساعدة بيوتي مش موسوعة عامة، وارجعي للموضوع بلطف من غير ما تجاوبي السؤال الخارجي.\n10) لو العميل قال بأي صيغة عامية أو فصحى «عروض»، «خصومات»، «تخفيضات»، «أوفر»، «سيل»، أو «حاجات عليها خصم/عروض»، فده طلب واضح لمنتجات عليها خصم حاليًا، واستخدمي search_products مع onOffer=true. ولو ذكر بشرة/شعر/جسم طبقي الفلتر كمان.\n11) لو طلب العميل منتجًا، استخدمي الأداة أولًا ثم ابني الرد من نتائجها فقط."
+          if old not in text:
+              raise SystemExit('system prompt insertion point not found')
+          text = text.replace(old, new, 1)
+
+          old = "    const normalizedMessages = normalizeMessages(messages);\n    const cacheKey = cacheKeyFor(normalizedMessages);\n    const staticReply = normalizedMessages.length === 1 ? staticReplyFor(normalizedMessages[0].content) : null;"
+          new = "    const normalizedMessages = normalizeMessages(messages);\n    const cacheKey = cacheKeyFor(normalizedMessages);\n    const staticReply = normalizedMessages.length === 1 ? staticReplyFor(normalizedMessages[0].content) : null;\n\n    const offerIntent = normalizedMessages.length === 1 ? offerIntentFor(normalizedMessages[0].content) : null;\n    if (offerIntent) {\n      const offerFilters = { onOffer: true };\n      if (offerIntent.category) offerFilters.category = offerIntent.category;\n      const offerProducts = await searchProducts(offerFilters);\n      const offerReply = formatOfferReply(offerProducts);\n      return res.status(200).json({ reply: offerReply, products: offerProducts, cache: 'offer-intent' });\n    }"
+          if old not in text:
+              raise SystemExit('handler insertion point not found')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit and self-remove
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm -f .github/workflows/one-off-ai-offer-fix.yml
+          git add api/beauty-advisor.js .github/workflows/one-off-ai-offer-fix.yml
+          git diff --cached --quiet && { echo "No changes needed"; exit 0; }
+          git commit -m "fix: understand colloquial Arabic offer and discount requests"
+          git push origin HEAD:main
