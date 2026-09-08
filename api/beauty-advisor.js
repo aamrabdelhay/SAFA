@@ -114,6 +114,31 @@ function staticReplyFor(message) {
   return null;
 }
 
+function offerIntentFor(message) {
+  const text = normalize(message).replace(/ـ/g, '');
+  const isOffer = /(عروض|عرض|خصومات|خصم|تخفيضات|تخفيض|تنزيلات|تنزيل|سِيل|سيل|اوفَر|اوفر|أوفر|أوفرات|حاجات عليها خصم|حاجه عليها خصم|حاجة عليها خصم|حاجات عليها عروض|حاجه عليها عروض|حاجة عليها عروض|sale|sales|discounts?|offers?|deals?|clearance)/iu.test(text);
+  if (!isOffer) return null;
+
+  let category = null;
+  if (/(بشرة|وش|وجه|سكين كير|skincare|skin)/iu.test(text)) category = 'skin';
+  else if (/(شعر|هير كير|hair care|hair)/iu.test(text)) category = 'hair';
+  else if (/(جسم|بودي|body care|body)/iu.test(text)) category = 'body';
+
+  return { onOffer: true, category };
+}
+
+function formatOfferReply(products) {
+  if (!products.length) return 'حاليًا مفيش منتجات عليها خصم أو عرض ظاهر في المتجر. لو تحبي أقدر أدورلك على حاجة في البشرة أو الشعر أو الجسم.';
+  const lines = products.slice(0, 5).map((p) => {
+    const original = Number(p.price || 0).toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const final = Number(p.final_price || 0).toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const saving = Math.max(0, Number(p.price || 0) - Number(p.final_price || 0));
+    const save = saving.toLocaleString('en-EG', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return `• ${p.name}${Number(p.final_price || 0) < Number(p.price || 0) ? ` — ${final} EGP بدل ${original} EGP (توفير ${save} EGP)` : ` — ${final} EGP`}`;
+  });
+  return `أيوه ❤️ عندنا عروض وخصومات حاليًا. دي أبرز المنتجات عليها خصم:\n${lines.join('\\n')}\n\nقوليلي «بشرة» أو «شعر» أو «جسم» لو عايزة أشوفلك العروض في قسم معين.`;
+}
+
 function categoryAliases(value) {
   const map = {
     skin: ['skin', 'skincare', 'face', 'beauty', 'بشرة', 'العناية بالبشرة'],
@@ -144,6 +169,10 @@ async function searchProducts(filters = {}) {
   const args = [];
   const where = ['p.active = true'];
   const category = normalize(filters.category);
+
+  if (filters.onOffer === true) {
+    where.push("(p.discount_type <> 'none' and coalesce(p.discount_value, 0) > 0)");
+  }
 
   if (category) {
     const patterns = categoryAliases(category).map((x) => `%${x}%`);
@@ -216,7 +245,8 @@ const SYSTEM_PROMPT = `
 7) ممنوع التشخيص الطبي أو وصف علاج لمرض جلدي أو مشكلة مرضية في فروة الرأس.
 8) خلي الردود قصيرة وواضحة ومناسبة لشات متجر إلكتروني.
 9) لو السؤال خارج نطاق الجمال ومنتجات SAFA & More، ردي بخفة دم إنك مساعدة بيوتي مش موسوعة عامة، وارجعي للموضوع بلطف من غير ما تجاوبي السؤال الخارجي.
-10) لو طلب العميل منتجًا، استخدمي الأداة أولًا ثم ابني الرد من نتائجها فقط.
+10) لو العميل قال بأي صيغة عامية أو فصحى «عروض»، «خصومات»، «تخفيضات»، «أوفر»، «سيل»، أو «حاجات عليها خصم/عروض»، فده طلب واضح لمنتجات عليها خصم حاليًا، واستخدمي search_products مع onOffer=true. ولو ذكر بشرة/شعر/جسم طبقي الفلتر كمان.
+11) لو طلب العميل منتجًا، استخدمي الأداة أولًا ثم ابني الرد من نتائجها فقط.
 `;
 
 const TOOLS = [{ functionDeclarations: [{
@@ -224,6 +254,7 @@ const TOOLS = [{ functionDeclarations: [{
   description: 'يبحث في منتجات SAFA الحقيقية داخل قاعدة البيانات ولا يعيد إلا المنتجات المطابقة للفلاتر.',
   parameters: { type: 'object', properties: {
     query: { type: 'string', description: 'كلمات إضافية للبحث في اسم أو وصف أو tags المنتج' },
+    onOffer: { type: 'boolean', description: 'true عندما يطلب العميل عروضًا أو خصومات أو منتجات عليها تخفيض حاليًا' },
     category: { type: 'string', enum: ['skin', 'hair', 'body'] },
     skinType: { type: 'string' }, hairType: { type: 'string' }, hairColor: { type: 'string' }, maxPrice: { type: 'number' },
   } },
@@ -266,6 +297,15 @@ module.exports = async function beautyAdvisor(req, res) {
     const normalizedMessages = normalizeMessages(messages);
     const cacheKey = cacheKeyFor(normalizedMessages);
     const staticReply = normalizedMessages.length === 1 ? staticReplyFor(normalizedMessages[0].content) : null;
+
+    const offerIntent = normalizedMessages.length === 1 ? offerIntentFor(normalizedMessages[0].content) : null;
+    if (offerIntent) {
+      const offerFilters = { onOffer: true };
+      if (offerIntent.category) offerFilters.category = offerIntent.category;
+      const offerProducts = await searchProducts(offerFilters);
+      const offerReply = formatOfferReply(offerProducts);
+      return res.status(200).json({ reply: offerReply, products: offerProducts, cache: 'offer-intent' });
+    }
 
     if (staticReply) {
       const cachedStatic = await readCache(cacheKey);
