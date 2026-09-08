@@ -37,7 +37,7 @@ function aliases(value) {
     dry: ['dry', 'جاف', 'جافة'],
     combination: ['combination', 'مختلط', 'مختلطة'],
     normal: ['normal', 'عادي', 'عادية'],
-    curly: ['curly', 'كيرلي', 'مجعد', 'مجعدّة'],
+    curly: ['curly', 'كيرلي', 'مجعد', 'مجعدة'],
     wavy: ['wavy', 'ويفي', 'مموج', 'مموجة'],
     straight: ['straight', 'مفرود', 'مستقيم'],
     blonde: ['blonde', 'أشقر', 'شقراء'],
@@ -62,7 +62,8 @@ async function searchProducts(filters = {}) {
 
   if (category) {
     args.push(categoryAliases(category).map((x) => `%${x}%`));
-    where.push(`lower(coalesce(c.name_en, '')) LIKE ANY($${args.length}) OR lower(coalesce(c.name_ar, '')) LIKE ANY($${args.length})`);
+    const i = args.length;
+    where.push(`(lower(coalesce(c.name_en, '')) LIKE ANY($${i}) OR lower(coalesce(c.name_ar, '')) LIKE ANY($${i}))`);
   }
 
   const addTextFilter = (patterns) => {
@@ -71,11 +72,11 @@ async function searchProducts(filters = {}) {
     const clauses = clean.map((pattern) => {
       args.push(`%${pattern}%`);
       const i = args.length;
-      return `lower(coalesce(p.name_en, '')) like lower($${i})
+      return `(lower(coalesce(p.name_en, '')) like lower($${i})
         or lower(coalesce(p.name_ar, '')) like lower($${i})
         or lower(coalesce(p.description_en, '')) like lower($${i})
         or lower(coalesce(p.description_ar, '')) like lower($${i})
-        or exists (select 1 from unnest(coalesce(p.tags, '{}'::text[])) t where lower(t) like lower($${i}))`;
+        or exists (select 1 from unnest(coalesce(p.tags, '{}'::text[])) t where lower(t) like lower($${i})))`;
     });
     where.push(`(${clauses.join(' or ')})`);
   };
@@ -113,7 +114,10 @@ async function searchProducts(filters = {}) {
     limit 5
   `;
 
+  console.log('[beauty-advisor] search_products input:', JSON.stringify(filters));
   const rows = (await pool.query(sql, args)).rows;
+  console.log('[beauty-advisor] search_products result count:', rows.length);
+
   return rows.map((p) => ({
     id: p.id,
     name: p.name_en,
@@ -165,7 +169,25 @@ const TOOLS = [
 ];
 
 async function callClaude(messages) {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not configured');
+  const apiKeyPresent = Boolean(process.env.ANTHROPIC_API_KEY?.trim());
+  console.log('[beauty-advisor] ANTHROPIC_API_KEY present:', apiKeyPresent);
+  if (!apiKeyPresent) {
+    throw new Error('المفتاح مش موجود: ANTHROPIC_API_KEY');
+  }
+
+  const payload = {
+    model: 'claude-sonnet-4-6',
+    max_tokens: 500,
+    system: SYSTEM_PROMPT,
+    tools: TOOLS,
+    messages,
+  };
+
+  console.log('[beauty-advisor] sending Claude request:', JSON.stringify({
+    model: payload.model,
+    messageCount: messages.length,
+    toolCount: payload.tools.length,
+  }));
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -174,49 +196,70 @@ async function callClaude(messages) {
       'x-api-key': process.env.ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 500,
-      system: SYSTEM_PROMPT,
-      tools: TOOLS,
-      messages,
-    }),
+    body: JSON.stringify(payload),
   });
 
+  const raw = await response.text();
+  console.log('[beauty-advisor] Claude HTTP status:', response.status);
+
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Claude API error: ${text.slice(0, 500)}`);
+    console.error('[beauty-advisor] Claude API error body:', raw.slice(0, 1200));
+    throw new Error(`Claude API error: ${raw.slice(0, 1200)}`);
   }
-  return response.json();
+
+  const data = JSON.parse(raw);
+  console.log('[beauty-advisor] Claude response:', JSON.stringify({
+    stop_reason: data.stop_reason,
+    contentTypes: Array.isArray(data.content) ? data.content.map((b) => b.type) : [],
+  }));
+  return data;
 }
 
 module.exports = async function beautyAdvisor(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
 
+  console.log('[beauty-advisor] request received:', JSON.stringify({ method: req.method, hasBody: Boolean(req.body) }));
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
   if (!allowed(req)) return res.status(429).json({ error: 'Too many requests. Please try again later.' });
 
+  if (!process.env.ANTHROPIC_API_KEY?.trim()) {
+    console.error('[beauty-advisor] ANTHROPIC_API_KEY is missing');
+    return res.status(503).json({ error: 'المفتاح مش موجود: ANTHROPIC_API_KEY' });
+  }
+
   try {
     const messages = Array.isArray(req.body?.messages) ? req.body.messages : [];
-    if (!messages.length || messages.length > 30) return res.status(400).json({ error: 'Invalid conversation' });
+    if (!messages.length || messages.length > 30) {
+      console.error('[beauty-advisor] invalid conversation:', JSON.stringify({ isArray: Array.isArray(req.body?.messages), count: messages.length }));
+      return res.status(400).json({ error: 'Invalid conversation' });
+    }
 
     let conversation = messages.map((m) => ({
       role: m.role === 'assistant' ? 'assistant' : 'user',
       content: typeof m.content === 'string' ? m.content.slice(0, 4000) : '',
     }));
 
+    console.log('[beauty-advisor] normalized conversation:', JSON.stringify({ count: conversation.length, roles: conversation.map((m) => m.role) }));
+
     let data = await callClaude(conversation);
     const recommendedProducts = new Map();
 
     for (let loop = 0; loop < 4 && data.stop_reason === 'tool_use'; loop += 1) {
       const toolBlocks = data.content.filter((b) => b.type === 'tool_use');
+      console.log('[beauty-advisor] tool loop:', JSON.stringify({ loop, toolBlocks: toolBlocks.length }));
       const toolResults = [];
 
       for (const block of toolBlocks) {
         const products = block.name === 'search_products' ? await searchProducts(block.input || {}) : [];
         for (const product of products) recommendedProducts.set(String(product.id), product);
-        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(products) });
+        console.log('[beauty-advisor] tool result:', JSON.stringify({ name: block.name, tool_use_id: block.id, resultCount: products.length }));
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: block.id,
+          content: JSON.stringify(products),
+        });
       }
 
       conversation = [
@@ -224,6 +267,8 @@ module.exports = async function beautyAdvisor(req, res) {
         { role: 'assistant', content: data.content },
         { role: 'user', content: toolResults },
       ];
+
+      console.log('[beauty-advisor] sending tool_result back to Claude:', JSON.stringify({ resultBlocks: toolResults.length }));
       data = await callClaude(conversation);
     }
 
@@ -233,12 +278,15 @@ module.exports = async function beautyAdvisor(req, res) {
       .join('\n')
       .trim();
 
+    const products = Array.from(recommendedProducts.values()).slice(0, 5);
+    console.log('[beauty-advisor] final response:', JSON.stringify({ replyPreview: reply.slice(0, 300), productCount: products.length, stop_reason: data.stop_reason }));
+
     return res.status(200).json({
       reply: reply || 'معلش، مش عرفت أوصلك لأفضل اختيار دلوقتي. قوليلي احتياجك وأنا أساعدك خطوة خطوة.',
-      products: Array.from(recommendedProducts.values()).slice(0, 5),
+      products,
     });
   } catch (error) {
-    console.error('beauty-advisor:', error);
-    return res.status(500).json({ error: 'حصل خطأ أثناء تشغيل مساعد الجمال. جربي تاني.' });
+    console.error('[beauty-advisor] request failed:', error);
+    return res.status(500).json({ error: error.message || 'حصل خطأ أثناء تشغيل مساعد الجمال.' });
   }
 };
