@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="/site-enhancements.css?v=4" />
     <link rel="stylesheet" href="/safa-home-logo.css?v=9" />
     <link rel="stylesheet" href="/product-page.css?v=2" />
-    <link rel="stylesheet" href="/safa-unified-ux.css?v=1" />
+    <link rel="stylesheet" href="/safa-unified-ux.css?v=2" />
     <title>SAFA & More — Luxury Beauty</title>
     <style>
       .header-search input{display:none!important}
@@ -38,18 +38,6 @@
     <script src="/site-enhancements.js?v=3"></script>
     <script src="/order-details.js?v=1"></script>
     <script src="/product-page.js?v=3"></script>
-    <script src="/safa-unified-ux.js?v=1"></script>
-    <script>
-      document.addEventListener('click',function(e){
-        var back=e.target.closest('.pp-back');
-        if(!back)return;
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        if(location.hash.indexOf('#product=')===0){
-          history.replaceState({},'',location.pathname+location.search);
-          window.dispatchEvent(new PopStateEvent('popstate'));
-        }else{window.location.assign('/')}
-      },true);
-    </script>
+    <script src="/safa-unified-ux.js?v=2"></script>
   </body>
 </html>
