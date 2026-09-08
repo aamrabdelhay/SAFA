@@ -5,28 +5,33 @@ CREATE TABLE IF NOT EXISTS products(id uuid PRIMARY KEY DEFAULT gen_random_uuid(
 CREATE TABLE IF NOT EXISTS product_images(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),product_id uuid REFERENCES products(id) ON DELETE CASCADE,url text NOT NULL,alt_en text DEFAULT '',alt_ar text DEFAULT '',position int DEFAULT 0);
 CREATE TABLE IF NOT EXISTS offers(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),title_en text NOT NULL,title_ar text NOT NULL,type text NOT NULL CHECK(type IN('percentage','fixed','bundle','buy_x_get_y')),value numeric(12,2) DEFAULT 0,bundle_price numeric(12,2),buy_x int,buy_y int,start_date timestamptz,end_date timestamptz,active boolean DEFAULT true);
 CREATE TABLE IF NOT EXISTS offer_items(offer_id uuid REFERENCES offers(id) ON DELETE CASCADE,product_id uuid REFERENCES products(id) ON DELETE CASCADE,quantity int DEFAULT 1,PRIMARY KEY(offer_id,product_id));
-CREATE TABLE IF NOT EXISTS orders(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_number text UNIQUE NOT NULL,customer_name text NOT NULL,phone1 text NOT NULL,phone2 text NOT NULL,governorate text NOT NULL,address text NOT NULL,building_number text,apartment_number text,subtotal numeric(12,2) NOT NULL,discount numeric(12,2) NOT NULL,savings numeric(12,2) NOT NULL,total numeric(12,2) NOT NULL,status text DEFAULT 'new' CHECK(status IN('new','confirmed','preparing','shipped','delivered','cancelled')),archived_at timestamptz,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
+CREATE TABLE IF NOT EXISTS orders(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_number text UNIQUE NOT NULL,customer_name text NOT NULL,phone1 text NOT NULL,phone2 text NOT NULL,governorate text NOT NULL,address text NOT NULL,building_number text,floor_number text,apartment_number text,subtotal numeric(12,2) NOT NULL,discount numeric(12,2) NOT NULL,savings numeric(12,2) NOT NULL,total numeric(12,2) NOT NULL,status text DEFAULT 'new' CHECK(status IN('new','confirmed','preparing','shipped','delivered','cancelled')),archived_at timestamptz,created_at timestamptz DEFAULT now(),updated_at timestamptz DEFAULT now());
 CREATE TABLE IF NOT EXISTS order_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_id uuid REFERENCES orders(id) ON DELETE CASCADE,product_id uuid REFERENCES products(id) ON DELETE SET NULL,product_name_snapshot text NOT NULL,price_snapshot numeric(12,2) NOT NULL,quantity int NOT NULL,discount_snapshot numeric(12,2) DEFAULT 0,total numeric(12,2) NOT NULL,selected_specification text DEFAULT '');
 CREATE TABLE IF NOT EXISTS site_settings(key text PRIMARY KEY,value text NOT NULL,updated_at timestamptz DEFAULT now());
 CREATE TABLE IF NOT EXISTS homepage_sections(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),type text NOT NULL,title_en text,title_ar text,subtitle_en text,subtitle_ar text,image_url text,position int DEFAULT 0,active boolean DEFAULT true,product_ids uuid[] DEFAULT '{}',category_id uuid REFERENCES categories(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS beauty_advisor_cache(
+  cache_key text PRIMARY KEY,
+  answer text NOT NULL,
+  products jsonb NOT NULL DEFAULT '[]'::jsonb,
+  tool_filters jsonb NOT NULL DEFAULT '[]'::jsonb,
+  data_hashes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_static boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS products_search_idx ON products USING gin(to_tsvector('simple',name_en||' '||description_en));
+CREATE INDEX IF NOT EXISTS beauty_advisor_cache_updated_idx ON beauty_advisor_cache(updated_at);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS specifications jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_specification text DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS archived_at timestamptz;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS floor_number text;
 
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM site_settings WHERE key='safa_default_categories_seeded') THEN
     INSERT INTO categories(name_en,name_ar,slug,description_en,description_ar,image_url,position,active)
-    VALUES
-      ('Skincare','Skincare','skincare','','',NULL,0,true),
-      ('Face Care','Face Care','face-care','','',NULL,1,true),
-      ('Hair Care','Hair Care','hair-care','','',NULL,2,true),
-      ('Body Care','Body Care','body-care','','',NULL,3,true),
-      ('Lip Care','Lip Care','lip-care','','',NULL,4,true)
+    VALUES ('Skincare','Skincare','skincare','','',NULL,0,true),('Face Care','Face Care','face-care','','',NULL,1,true),('Hair Care','Hair Care','hair-care','','',NULL,2,true),('Body Care','Body Care','body-care','','',NULL,3,true),('Lip Care','Lip Care','lip-care','','',NULL,4,true)
     ON CONFLICT (slug) DO NOTHING;
-
-    INSERT INTO site_settings(key,value) VALUES('safa_default_categories_seeded','1')
-    ON CONFLICT(key) DO UPDATE SET value='1',updated_at=now();
+    INSERT INTO site_settings(key,value) VALUES('safa_default_categories_seeded','1') ON CONFLICT(key) DO UPDATE SET value='1',updated_at=now();
   END IF;
 END $$;
