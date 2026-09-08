@@ -31,57 +31,62 @@ function allowed(req) {
 
 const normalize = (value) => String(value || '').trim().toLowerCase();
 
-function filterPatterns(value) {
-  const aliases = {
+function aliases(value) {
+  const map = {
     oily: ['oily', 'دهني', 'دهنية'],
     dry: ['dry', 'جاف', 'جافة'],
     combination: ['combination', 'مختلط', 'مختلطة'],
     normal: ['normal', 'عادي', 'عادية'],
-    curly: ['curly', 'كيرلي', 'مجعد'],
-    wavy: ['wavy', 'ويفي', 'مموج'],
+    curly: ['curly', 'كيرلي', 'مجعد', 'مجعدّة'],
+    wavy: ['wavy', 'ويفي', 'مموج', 'مموجة'],
     straight: ['straight', 'مفرود', 'مستقيم'],
     blonde: ['blonde', 'أشقر', 'شقراء'],
-    highlighted: ['highlighted', 'هايلايت', 'ملون', 'مصبوغ'],
+    highlighted: ['highlighted', 'هايلايت', 'ملون', 'ملونة', 'مصبوغ', 'مصبوغة'],
   };
-  return aliases[normalize(value)] || [String(value || '')];
+  return map[normalize(value)] || [String(value || '')];
+}
+
+function categoryAliases(value) {
+  const map = {
+    skin: ['skin', 'skincare', 'face', 'beauty', 'بشرة', 'عناية بالبشرة'],
+    hair: ['hair', 'hair care', 'شعر', 'العناية بالشعر'],
+    body: ['body', 'body care', 'جسم', 'العناية بالجسم'],
+  };
+  return map[normalize(value)] || [String(value || '')];
 }
 
 async function searchProducts(filters = {}) {
-  const category = normalize(filters.category);
-  const skinType = filterPatterns(filters.skinType);
-  const hairType = filterPatterns(filters.hairType);
-  const hairColor = filterPatterns(filters.hairColor);
-  const query = normalize(filters.query);
-  const maxPrice = Number(filters.maxPrice || 0);
-
   const args = [];
   const where = ["p.active = true"];
+  const category = normalize(filters.category);
 
   if (category) {
-    args.push(category);
-    where.push(`lower(coalesce(c.name_en, '')) = $${args.length}`);
+    args.push(categoryAliases(category).map((x) => `%${x}%`));
+    where.push(`lower(coalesce(c.name_en, '')) LIKE ANY($${args.length}) OR lower(coalesce(c.name_ar, '')) LIKE ANY($${args.length})`);
   }
 
   const addTextFilter = (patterns) => {
-    const text = patterns.filter(Boolean).map(String).join(' | ');
-    if (!text) return;
-    args.push(`%${text}%`);
-    const i = args.length;
-    where.push(`(
-      lower(coalesce(p.name_en, '')) like lower($${i})
-      or lower(coalesce(p.name_ar, '')) like lower($${i})
-      or lower(coalesce(p.description_en, '')) like lower($${i})
-      or lower(coalesce(p.description_ar, '')) like lower($${i})
-      or exists (select 1 from unnest(coalesce(p.tags, '{}'::text[])) t where lower(t) like lower($${i}))
-    )`);
+    const clean = [...new Set(patterns.flatMap((p) => aliases(p)).filter(Boolean))].slice(0, 8);
+    if (!clean.length) return;
+    const clauses = clean.map((pattern) => {
+      args.push(`%${pattern}%`);
+      const i = args.length;
+      return `lower(coalesce(p.name_en, '')) like lower($${i})
+        or lower(coalesce(p.name_ar, '')) like lower($${i})
+        or lower(coalesce(p.description_en, '')) like lower($${i})
+        or lower(coalesce(p.description_ar, '')) like lower($${i})
+        or exists (select 1 from unnest(coalesce(p.tags, '{}'::text[])) t where lower(t) like lower($${i}))`;
+    });
+    where.push(`(${clauses.join(' or ')})`);
   };
 
-  if (filters.skinType) addTextFilter(skinType);
-  if (filters.hairType) addTextFilter(hairType);
-  if (filters.hairColor) addTextFilter(hairColor);
-  if (query) addTextFilter(query.split(/\s+/).filter(Boolean).slice(0, 5));
+  if (filters.skinType) addTextFilter([filters.skinType]);
+  if (filters.hairType) addTextFilter([filters.hairType]);
+  if (filters.hairColor) addTextFilter([filters.hairColor]);
+  if (filters.query) addTextFilter(String(filters.query).split(/\s+/).filter(Boolean).slice(0, 5));
 
   const priceExpr = `greatest(0, round((p.price - case when p.discount_type='percent' then p.price*coalesce(p.discount_value,0)/100 when p.discount_type='fixed' then coalesce(p.discount_value,0) else 0 end)::numeric, 2))`;
+  const maxPrice = Number(filters.maxPrice || 0);
   if (maxPrice > 0) {
     args.push(maxPrice);
     where.push(`${priceExpr} <= $${args.length}`);
@@ -133,7 +138,7 @@ const SYSTEM_PROMPT = `
 1) اسألي سؤالًا واحدًا فقط في كل رسالة أثناء جمع المعلومات.
 2) ابدئي عادةً بمعرفة هل الاحتياج للبشرة أم الشعر أم الجسم، ثم اسألي عن التفاصيل الضرورية فقط.
 3) لا تقترحي أي منتج إلا بعد استخدام أداة search_products.
-4) ممنوع اختراع اسم منتج أو سعر أو عرض أو رابط أو خصائص غير موجودة في نتيجة الأداة.
+4) ممنوع اختراع اسم منتج أو سعر أو عرض أو خصائص غير موجودة في نتيجة الأداة.
 5) لو الأداة لم تُرجع منتجات مطابقة، قولي بصراحة إن مفيش منتج مطابق حاليًا واقترحي تعديل البحث بسؤال واحد.
 6) عند وجود نتيجة مناسبة، اذكري الاسم والسعر النهائي، ولو فيه خصم اذكري أن عليه عرضًا، ويمكن ذكر السعر الأصلي فقط لو موجود في نتيجة الأداة.
 7) لا تقدمي تشخيصًا طبيًا أو علاجًا لمرض جلدي/فروة الرأس. لو السؤال طبي بحت، اكتفي بنصيحة عامة بزيارة مختص.
@@ -211,11 +216,7 @@ module.exports = async function beautyAdvisor(req, res) {
       for (const block of toolBlocks) {
         const products = block.name === 'search_products' ? await searchProducts(block.input || {}) : [];
         for (const product of products) recommendedProducts.set(String(product.id), product);
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: block.id,
-          content: JSON.stringify(products),
-        });
+        toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(products) });
       }
 
       conversation = [
