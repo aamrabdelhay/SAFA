@@ -10,6 +10,7 @@
     { "source": "/api/admin-archive", "destination": "/api/admin-archive.js" },
     { "source": "/api/logo-config", "destination": "/api/logo-config.js" },
     { "source": "/api/orders", "destination": "/api/orders.js" },
+    { "source": "/api/beauty-advisor", "destination": "/api/beauty-advisor.js" },
     { "source": "/api/:path*", "destination": "/api/app.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],

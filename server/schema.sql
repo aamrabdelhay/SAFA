@@ -9,7 +9,18 @@ CREATE TABLE IF NOT EXISTS orders(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
 CREATE TABLE IF NOT EXISTS order_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),order_id uuid REFERENCES orders(id) ON DELETE CASCADE,product_id uuid REFERENCES products(id) ON DELETE SET NULL,product_name_snapshot text NOT NULL,price_snapshot numeric(12,2) NOT NULL,quantity int NOT NULL,discount_snapshot numeric(12,2) DEFAULT 0,total numeric(12,2) NOT NULL,selected_specification text DEFAULT '');
 CREATE TABLE IF NOT EXISTS site_settings(key text PRIMARY KEY,value text NOT NULL,updated_at timestamptz DEFAULT now());
 CREATE TABLE IF NOT EXISTS homepage_sections(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),type text NOT NULL,title_en text,title_ar text,subtitle_en text,subtitle_ar text,image_url text,position int DEFAULT 0,active boolean DEFAULT true,product_ids uuid[] DEFAULT '{}',category_id uuid REFERENCES categories(id) ON DELETE SET NULL);
+CREATE TABLE IF NOT EXISTS beauty_advisor_cache(
+  cache_key text PRIMARY KEY,
+  answer text NOT NULL,
+  products jsonb NOT NULL DEFAULT '[]'::jsonb,
+  tool_filters jsonb NOT NULL DEFAULT '[]'::jsonb,
+  data_hashes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  is_static boolean NOT NULL DEFAULT false,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS products_search_idx ON products USING gin(to_tsvector('simple',name_en||' '||description_en));
+CREATE INDEX IF NOT EXISTS beauty_advisor_cache_updated_idx ON beauty_advisor_cache(updated_at);
 ALTER TABLE products ADD COLUMN IF NOT EXISTS specifications jsonb NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS selected_specification text DEFAULT '';
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS archived_at timestamptz;
