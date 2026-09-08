@@ -28,6 +28,7 @@ module.exports = async (req, res) => {
       )
       SELECT
         p.id,
+        p.name_en,
         COALESCE(pu.purchase_count, 0)::int AS purchase_count,
         CASE
           WHEN COALESCE(pu.purchase_count, 0) = 0 THEN 0
