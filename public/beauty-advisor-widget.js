@@ -149,6 +149,7 @@
     input.value = '';
     loading = true;
     render();
+    console.log('[beauty-advisor] frontend sending message:', { messageCount: messages.length });
     try {
       const response = await fetch('/api/beauty-advisor', {
         method: 'POST',
@@ -156,10 +157,12 @@
         body: JSON.stringify({ messages }),
       });
       const data = await response.json().catch(() => ({}));
+      console.log('[beauty-advisor] frontend API response:', { status: response.status, ok: response.ok, error: data.error || null });
       if (!response.ok) throw new Error(data.error || 'Request failed');
       messages.push({ role: 'assistant', content: data.reply || 'معلش، حصل خطأ. جربي تاني.', products: data.products || [] });
     } catch (error) {
-      messages.push({ role: 'assistant', content: 'معلش، حصلت مشكلة وأنا بحاول أساعدك. جربي تاني بعد شوية.' });
+      console.error('[beauty-advisor] frontend request failed:', error);
+      messages.push({ role: 'assistant', content: error.message || 'معلش، حصلت مشكلة وأنا بحاول أساعدك. جربي تاني بعد شوية.' });
     } finally {
       loading = false;
       render();
