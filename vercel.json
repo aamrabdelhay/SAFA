@@ -11,6 +11,8 @@
     { "source": "/api/logo-config", "destination": "/api/logo-config.js" },
     { "source": "/api/orders", "destination": "/api/orders.js" },
     { "source": "/api/beauty-advisor", "destination": "/api/beauty-advisor.js" },
+    { "source": "/api/analytics-visit", "destination": "/api/analytics-visit.js" },
+    { "source": "/api/admin-visitor-stats", "destination": "/api/admin-visitor-stats.js" },
     { "source": "/api/:path*", "destination": "/api/app.js" },
     { "source": "/(.*)", "destination": "/index.html" }
   ],
