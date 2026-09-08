@@ -1,0 +1,44 @@
+/* SAFA unified button system + header branding */
+:root{--safa-gold:#b8860b;--safa-gold-border:#d8c08a;--safa-ink:#211f1b;--safa-cream:#faf8f2}
+/* Every interactive button and the four header links share one pill treatment. */
+button,.header nav a{
+  border:1px solid var(--safa-gold)!important;
+  border-radius:999px!important;
+  background:transparent!important;
+  color:var(--safa-ink)!important;
+  box-shadow:none!important;
+  transition:background-color .18s ease,color .18s ease,border-color .18s ease,transform .18s ease!important;
+}
+button:hover,.header nav a:hover{
+  background:#f0d98c!important;
+  border-color:var(--safa-gold)!important;
+  color:var(--safa-ink)!important;
+}
+button:disabled{opacity:.6}
+.header nav a{padding:9px 15px!important}
+.header .brand b{
+  background:linear-gradient(100deg,#B69665 0%,#D2B274 50%,#B69665 100%);
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent!important;
+  -webkit-text-fill-color:transparent!important;
+}
+/* The splash component remains mounted while data is fetched, but is intentionally not displayed. */
+.loading-state{display:none!important}
+/* Product/logo surfaces must never invent a background, border, shadow, or filter around an uploaded image. */
+.hero-logo-control,.hero-logo-control:hover,.hero-logo-preview{
+  background:transparent!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  filter:none!important;
+  padding:0!important;
+  mix-blend-mode:normal!important;
+}
+/* Safety fallback shown by the runtime guard after a product rendering crash. */
+.safa-crash-fallback{position:fixed;inset:0;z-index:2147483647;background:#faf8f2;display:grid;place-items:center;padding:28px;text-align:center;font-family:Manrope,Arial,sans-serif}
+.safa-crash-fallback__card{max-width:560px;width:100%;padding:48px 32px;border:1px solid #211f1b18;background:#fff;box-shadow:0 20px 70px #211f1b18}
+.safa-crash-fallback__eyebrow{font-size:10px;letter-spacing:2px;color:#8b7751;font-weight:600}
+.safa-crash-fallback h1{font:500 52px/1 'Cormorant Garamond',Georgia,serif;color:#211f1b;margin:16px 0}
+.safa-crash-fallback p{color:#6f6a60;font-size:14px;line-height:1.7;margin:0 0 26px}
+.safa-crash-fallback button{padding:12px 20px!important}
