@@ -8,8 +8,6 @@
     { "source": "/api/admin/categories", "destination": "/api/admin-categories.js" },
     { "source": "/api/admin/login", "destination": "/api/admin-login.js" },
     { "source": "/api/admin-archive", "destination": "/api/admin-archive.js" },
-    { "source": "/api/admin/orders", "destination": "/api/admin-orders.js" },
-    { "source": "/api/admin/orders/:id", "destination": "/api/admin-orders.js?id=:id" },
     { "source": "/api/logo-config", "destination": "/api/logo-config.js" },
     { "source": "/api/orders", "destination": "/api/orders.js" },
     { "source": "/api/beauty-advisor", "destination": "/api/beauty-advisor.js" },
